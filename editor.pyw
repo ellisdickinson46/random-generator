@@ -256,4 +256,3 @@ class ConfigurationUtility(tk.Tk):
 if __name__ == "__main__":
     APP_CONFIG = EditorAppSettings("_configuration/app_config.json")
     instance = ConfigurationUtility(APP_CONFIG)
-    tk.mainloop()

@@ -11,7 +11,7 @@
             "justMyCode": true,
             "redirectOutput": true,
             "internalConsoleOptions": "openOnFirstSessionStart"
-        }
+        },
         {
             "name": "Python: Launch Editor",
             "preLaunchTask": "Clear terminal",

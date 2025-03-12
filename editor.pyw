@@ -16,10 +16,14 @@ class ConfigurationUtility(tk.Tk):
         # Window Properties
         self.geometry('x'.join(str(x) for x in config.app_size))
         self.title(config.app_title)
-        self.resizable(0,0)
+        self.resizable(0, 0)
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after_idle(self.attributes,'-topmost', False)
 
         # Improve drawing performance when switching tabs
         self.bind('<<NotebookTabChanged>>', lambda event: self.update_idletasks())
+        self.bind("<<ComboboxSelected>>",lambda e: self.focus())
 
         # Interface Variables
         self._slidervals = {
@@ -28,6 +32,7 @@ class ConfigurationUtility(tk.Tk):
             "b": tk.IntVar()
         }
         self._fontselect = tk.StringVar()
+        self._fontsize = tk.StringVar()
         self._soundmode = tk.StringVar()
         self._alwaysontop = tk.BooleanVar()
         self.app_icon = tk.PhotoImage(file="_configuration/icons/appicon_config.png").subsample(3,3)
@@ -46,8 +51,9 @@ class ConfigurationUtility(tk.Tk):
 
         # Apply the Sun Valley theme, and title bar colour (Windows Only)
         apply_theme(self, config.app_theme)
-        
+
         self._define_interface()
+        self.mainloop()
 
     def _change_intvar_by_amount(self, var: tk.IntVar, amount) -> None:
         if not isinstance(var, tk.IntVar):

@@ -1,0 +1,31 @@
+{
+    "generator_config": {
+        "app_title": "Random Generator",
+        "theme": "auto",
+        "window_size": [650, 140],
+        "selected_sound": "ding.wav",
+        "font": {
+            "face": "Arial Black",
+            "size": 42
+        },
+        "colours": {
+            "light_text": "#FAFAFA",
+            "dark_text": "#1C1C1C",
+            "random_colours": [
+                "#36E892",
+                "#FF9F60",
+                "#6485EC",
+                "#FFDF7A",
+                "#14D2EA",
+                "#FFD418",
+                "#FFFFFF",
+                "#000000"
+            ]
+        }
+    },
+    "editor_config": {
+        "app_title": "Configuration Utility",
+        "theme": "auto",
+        "window_size": [800, 500]
+    }
+}

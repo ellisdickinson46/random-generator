@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Launch Generator",
+            "preLaunchTask": "Clear terminal",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "generator.pyw",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "redirectOutput": true,
+            "internalConsoleOptions": "openOnFirstSessionStart"
+        }
+        {
+            "name": "Python: Launch Editor",
+            "preLaunchTask": "Clear terminal",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "editor.pyw",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "redirectOutput": true,
+            "internalConsoleOptions": "openOnFirstSessionStart"
+        }
+    ]
+}

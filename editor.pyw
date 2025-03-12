@@ -9,6 +9,8 @@ from _helpers.configuration import EditorAppSettings
 from _helpers.apply_theme import apply_theme
 import __versions__
 
+lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus vehicula consequat nibh vulputate vehicula. Suspendisse condimentum volutpat consectetur. Sed consectetur magna justo, a rutrum arcu luctus vitae. Etiam maximus iaculis risus et dignissim. Sed a tortor euismod, consequat sem in, lacinia est. Pellentesque magna erat, pulvinar at diam quis, ultrices scelerisque erat. Morbi lacus purus, dapibus in tempor id, porta id dolor. Suspendisse libero diam, fringilla et nibh a, venenatis fermentum lorem. In auctor risus in est consequat, et ornare eros mattis. Vestibulum a turpis scelerisque, pretium sapien at, aliquet nisi. Donec placerat augue a vulputate aliquet. Curabitur mattis ut lectus nec viverra. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae;"
+
 class ConfigurationUtility(tk.Tk):
     def __init__(self, config: EditorAppSettings):
         tk.Tk.__init__(self)
@@ -85,6 +87,7 @@ class ConfigurationUtility(tk.Tk):
         self._tab_control.pack(expand=True, fill="both")
         self._preference_tab_ui()
         self._editor_tab_ui()
+        self._save_tab_ui()
         self._about_tab_ui()
 
     def _about_tab_ui(self):
@@ -118,6 +121,24 @@ class ConfigurationUtility(tk.Tk):
         self._createlist_btn.grid(row=0, column=0, padx=5)
         self._editlist_btn.grid(row=0, column=1, padx=5)
         self._removelist_btn.grid(row=0, column=2, padx=5)
+
+    def _save_tab_ui(self):
+        self._savecontrols_frm = ttk.Frame(self._save_tab)
+        self._savecontrols_frm.grid(row=0, column=0, padx=10, pady=10, sticky="nw")
+
+        self._save_config_btn = ttk.Button(self._savecontrols_frm, text="Save configuration...", style="Accent.TButton", takefocus=0, state="disabled")
+        self._save_lbl = ttk.Label(self._savecontrols_frm, text="Check your configuration options before saving!")
+        
+        self._config_preview_frm = ttk.LabelFrame(self._save_tab, text=" Configuration Preview ")
+        self._config_preview = ttk.Label(self._config_preview_frm, font='TkFixedFont', foreground='gray64', text=lorem, wraplength=700)
+
+        self._save_config_btn.grid(row=0, column=0, padx=5)
+        self._save_lbl.grid(row=0, column=1, padx=(10,0))
+        self._config_preview_frm.grid(row=1, column=0, sticky="NESW", padx=5, pady=(0, 5))
+        self._config_preview.grid(row=1, column=0, sticky="NESW", padx=10, pady=10)
+        self._save_tab.grid_columnconfigure(0, weight=1)
+        self._save_tab.grid_rowconfigure(1, weight=1)
+
 
     def _preference_tab_ui(self):
         self._preference_container = ttk.LabelFrame(self._preference_tab, text=" Preferences ")

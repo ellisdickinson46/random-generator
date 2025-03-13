@@ -46,8 +46,11 @@ class TTKDialog(tk.Toplevel):
             },
             "select": {
                 "type": "select",
-                "buttons": ["Cancel", "OK"],
-                "primary_btn": "OK",
+                "buttons": [
+                    ("Cancel", "cancel"),
+                    ("OK", "ok")
+                ],
+                "primary_btn": "ok",
                 "diag_size": (350, 350)
             },
         }
@@ -77,7 +80,7 @@ class TTKDialog(tk.Toplevel):
         style = ttk.Style()
         style.configure('Treeview', rowheight=35)
 
-        self._content_title = ttk.Label(self, text="Choose an option:", anchor="w")
+        self._content_title = ttk.Label(self, text=self.diag_message, anchor="w")
         self._choices_frm = tk.Frame(self)
         self._choices_scrl = ttk.Scrollbar(self._choices_frm)
         self._choices_view = ttk.Treeview(self._choices_frm, show="tree", selectmode="browse", yscrollcommand=self._choices_scrl.set)
@@ -90,21 +93,21 @@ class TTKDialog(tk.Toplevel):
 
         # Create buttons from names in button options
         buttons_to_create = options.get("buttons")
-        for button in buttons_to_create:
+        for i, (text, action) in enumerate(buttons_to_create):
+            print(i)
             # Create button instance, each button calls processing function with its text value
             dynamic_btn = ttk.Button(
-                self._button_frm, text=button,
-                command=lambda b=button: self._process_choice(b)
+                self._button_frm, text=text,
+                command=lambda a=action: self._process_choice(a)
             )
 
             # If button text matche the primary option, the button should use the accent colour
-            if options.get("primary_btn") == button:
+            if options.get("primary_btn") == action:
                 dynamic_btn.configure(style="Accent.TButton")
             
             # Add the button instance to the interface
-            index = buttons_to_create.index(button) + 1
-            dynamic_btn.grid(row=0, column=index, padx=(5,0), ipadx=10, sticky="NEWS")
-            self._button_frm.grid_columnconfigure(index, weight=1, uniform="button_control")
+            dynamic_btn.grid(row=0, column=(i + 1), padx=(5,0), ipadx=10, sticky="NEWS")
+            self._button_frm.grid_columnconfigure((i + 1), weight=1, uniform="button_control")
         self._button_frm.grid_columnconfigure(0, weight=1, uniform="button_control")
 
         # Add non-dynamic elements to the interface

@@ -140,13 +140,18 @@ class RandomGenerator(tk.Tk):
 
 
     def sequential_random(self):
+        if len(self.loaded_list) == 0:
+            self.logger.error("Cannot choose from an empty sequence")
+            return
         if self.call_index == (len(self.loaded_list)):
             self._randomize_elements()
             self.call_index = 0
 
-        self._item_lbl.config(text=self.loaded_list[self.call_index])
+        item = self.loaded_list[self.call_index]
+
+        self.logger.info(f"Sequential random called, returned '{item}'")
+        self._item_lbl.config(text=item)
         self.call_index += 1
-        print(self.loaded_list, self.call_index)
         self._post_selection_actions()
 
 

@@ -111,9 +111,17 @@ class RandomGenerator(tk.Tk):
         self.logger.debug("Launching choice dialog...")
         self.attributes('-topmost', False)
         dialog = TTKDialog(
-            self, diag_type="select", diag_title=self._("Choose an option"),
+            self, 
+            diag_type="select",
+            diag_title=self._("Choose an option"),
             diag_message=f"{self._("Choose an option")}:",
-            diag_choices=available_lists
+            diag_choices=available_lists,
+            diag_size=(350, 350),
+            diag_buttons=[
+                (self._("Cancel"), "cancel"),
+                (self._("OK"), "ok")
+            ],
+            primary_btn="ok"
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)

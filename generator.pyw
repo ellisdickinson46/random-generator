@@ -1,17 +1,19 @@
 import ctypes
-import threading
+import gettext
+import os
+import platform
 import random
 import sys
-import platform
+import threading
 import tkinter as tk
 from tkinter import ttk
 
 from _helpers.apply_theme import apply_theme
+from _helpers.configuration import GeneratorAppSettings
 from _helpers.dialog_boxes import TTKDialog
 from _helpers.data import JSONHandler
 from _helpers.logbook import Logger, StreamHandler, FileHandler
 from _helpers.playsound import playsound
-from _helpers.configuration import GeneratorAppSettings
 from _helpers.readability import determine_text_color
 
 
@@ -21,40 +23,51 @@ class RandomGenerator(tk.Tk):
         self.config = config
 
         self.logger = self._initialize_logger()
+        self.logger.info("Launching Random Generator...")
+        self._list_data = JSONHandler("_configuration/lists.json").json_data
+        self.app_icon = tk.PhotoImage(file='_configuration/icons/appicon_config.png')
+        self.config = config
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
+        self.style = ttk.Style()
 
+        # Add callback function to update the window title when the list value is changed
         self.loaded_list_name.trace_add('write', callback=lambda a,b,c: self.title(
             f"Random Generator - Loaded List: {self.loaded_list_name.get()}"
         ))
 
-        self._list_data = JSONHandler("_configuration/lists.json").json_data
-
-        self.logger.info("Launching Random Generator...")
-        self.geometry('x'.join(str(x) for x in self.config.app_size))
-        self.resizable(0,0)
-        self.title("Random Generator")
+        # Define Window Properties
+        self.title(self._("_window_title"))
         self.attributes('-topmost', self.config.app_on_top)
+        self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.protocol('WM_DELETE_WINDOW', self._on_closing)
+        self.resizable(0,0)
+        self.style.configure('MatchedBg.TButton')
+        self.iconphoto(True, self.app_icon)
 
-        photo = tk.PhotoImage(file='_configuration/icons/appicon_config.png')
-        self.iconphoto(True, photo)
-
+        # Define the App ID for the Windows Shell Environment
+        # (This allows the display of app icons in the taskbar and window grouping across scripts)
         if platform.system() == "Windows":
-            myappid = 'bytefloater.rndgen.generator.4'
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+            app_id = 'com.bytefloater.random-generator.generator'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
 
+        # Apply the Sun Valley theme and title bar colour on platforms that support it
         apply_theme(self, config.app_theme)
+        
         self._define_interface()
         self.mainloop()
 
 
     def _initialize_logger(self) -> Logger:
+        """Create a logger instance with the necessary handlers"""
         logger = Logger("")
-        filehandler = FileHandler('applog_generator.txt', level="DEBUG", bubble=True)
-        logger.handlers.append(filehandler)
+        # If the log file option is enabled, create a FileHandler instance
+        if True: # TODO: Implement option to disable this feature, if desired
+            filehandler = FileHandler('applog_generator.txt', level="DEBUG", bubble=True)
+            logger.handlers.append(filehandler)
 
+        # If the script is attached to a terminal, create a StreamHandler instance
         if sys.stdout:
              streamhandler = StreamHandler(sys.stdout, level="DEBUG", bubble=True)
              logger.handlers.append(streamhandler)
@@ -116,14 +129,14 @@ class RandomGenerator(tk.Tk):
         self._random_bgcols()
 
 
-    def insequential_random(self):
+    def random(self):
         try:
             item = random.choice(self.loaded_list)
             self._item_lbl.config(text=item)
             self.logger.info(f"Insequential random called, returned '{item}'")
+            self._post_selection_actions()
         except IndexError as e:
             self.logger.error(e)
-        self._post_selection_actions()
 
 
     def sequential_random(self):
@@ -148,7 +161,13 @@ class RandomGenerator(tk.Tk):
 
 
     def _play_sound(self):
-        playsound("_configuration/sounds/wav/ding.wav")
+        sound_fname = "ding.wav" # TODO: Change this to read from config
+        if sound_fname:
+            try:
+                self.logger.debug(f"Attempting to play sound... [{sound_fname}]")
+                playsound(f"_configuration/sounds/wav/{sound_fname}")
+            except OSError as e:
+                self.logger.error(f"Error playing sound: {e}")
 
 
     def _random_bgcols(self):
@@ -169,11 +188,7 @@ class RandomGenerator(tk.Tk):
             element.configure(background=new_col)
 
         self._item_lbl.configure(foreground=new_txt_col)
-        
-        # self.configure(background=new_col)
-        # self._interface_container.configure(background=new_col)
-        # self._item_lbl.configure(background=new_col)
-
+        self.style.configure("MatchedBg.TButton", background=new_col)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,8 @@ from _helpers.apply_theme import apply_title_bar_theme
 from _helpers import sv_ttk
 
 class TTKDialog(tk.Toplevel):
-    def __init__(self, parent, diag_type, diag_title="", diag_message="", diag_choices=None):
+    def __init__(self, parent, diag_type, diag_size: tuple[int,int], diag_buttons: list[tuple[str, str]],
+                 diag_title="", diag_message="", diag_choices=None, primary_btn=""):
         # Initialize as a Toplevel window
         super().__init__(parent)
         self.lift()
@@ -15,66 +16,31 @@ class TTKDialog(tk.Toplevel):
         self.diag_title = diag_title
         self.diag_message = diag_message
         self.diag_choices = diag_choices
-        self.return_value = "" # Placeholder
+        self.diag_buttons = diag_buttons
+        self.primary_btn = primary_btn
+        self.return_value = ""
 
         # Configure window options
         self.resizable(0, 0)
-        self.geometry('350x200')  # Default size, will be updated by dialog options
-        self.maxsize(450, 350)
+        self.geometry('x'.join(str(x) for x in diag_size))
         self.title(self.diag_title)
         self.attributes('-topmost', True)
+        self.protocol("WM_DELETE_WINDOW", self._close_dialog)
 
         if platform.system() == "Windows":
             hwnd = ctypes.windll.user32.FindWindowW(None, self.diag_title)
             apply_title_bar_theme(hwnd, f"dialog_{sv_ttk.get_theme()}")
 
-        diag_options = {
-            "info": {
-                "type": "message",
-                "buttons": ["OK"],
-                "diag_size": (450, 200)
-            },
-            "warning": {
-                "type": "message",
-                "buttons": ["OK"],
-                "diag_size": (450, 200)
-            },
-            "error": {
-                "type": "message",
-                "buttons": ["OK"],
-                "diag_size": (450, 200)
-            },
-            "select": {
-                "type": "select",
-                "buttons": [
-                    ("Cancel", "cancel"),
-                    ("OK", "ok")
-                ],
-                "primary_btn": "ok",
-                "diag_size": (350, 350)
-            },
-        }
-
-        if (diag_options := diag_options.get(self.diag_type, None)):
-            self._begin_dialog_build(diag_options)
-        else:
-            raise TypeError(f"No dialog builder could be found for type '{self.diag_type}'")
-
-        self.protocol("WM_DELETE_WINDOW", self._close_dialog)  # Handle window close
-        self.grab_set()  # Make this window modal
-        self.focus()
-
-    def _begin_dialog_build(self, options):
-        DIAG_SIZE = options.get("diag_size")
-        self.geometry('x'.join(str(x) for x in DIAG_SIZE))
-        
         dispatcher = {
             "message": self._build_msg_dialog,
             "select": self._build_choice_dialog
         }
-        dispatcher.get(options.get("type"))(options)
+        dispatcher.get(diag_type)()
 
-    def _build_choice_dialog(self, options):
+        self.grab_set()
+        self.focus()
+
+    def _build_choice_dialog(self):
         """Function to build the interface for a selection dialog box"""
         # Define static interface elements
         style = ttk.Style()
@@ -92,9 +58,7 @@ class TTKDialog(tk.Toplevel):
             self._choices_view.insert("", "end", text=choice)
 
         # Create buttons from names in button options
-        buttons_to_create = options.get("buttons")
-        for i, (text, action) in enumerate(buttons_to_create):
-            print(i)
+        for i, (text, action) in enumerate(self.diag_buttons):
             # Create button instance, each button calls processing function with its text value
             dynamic_btn = ttk.Button(
                 self._button_frm, text=text,
@@ -102,7 +66,7 @@ class TTKDialog(tk.Toplevel):
             )
 
             # If button text matche the primary option, the button should use the accent colour
-            if options.get("primary_btn") == action:
+            if self.primary_btn == action:
                 dynamic_btn.configure(style="Accent.TButton")
             
             # Add the button instance to the interface
@@ -173,7 +137,6 @@ class TTKDialog(tk.Toplevel):
         self.destroy()
 
     def _close_dialog(self):
-        self.value = "yes"
         self.destroy()
 
 class MainApp(tk.Tk):
@@ -188,10 +151,20 @@ class MainApp(tk.Tk):
 
     def open_dialog(self):
         # Open the dialog as a popup
-        dialog = TTKDialog(self, diag_type="select", diag_title="Select an Option", diag_message="Choose your option")
-        print(dialog.value)
+        dialog = TTKDialog(
+            self, 
+            diag_type="select",
+            diag_title="Choose an option",
+            diag_message="Choose an option",
+            diag_choices=['test1', 'test2'],
+            diag_size=(350, 350),
+            diag_buttons=[
+                ("Cancel", "cancel"),
+                ("OK", "ok")
+            ]
+        )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
-
+        print(dialog.return_value)
 
 if __name__ == '__main__':
     app = MainApp()

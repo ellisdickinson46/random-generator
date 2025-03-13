@@ -1,0 +1,29 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+# -----------------------------
+
+msgid "_window_title"
+msgstr "Générateur Aléatoire"
+
+msgid "_btn_sequential"
+msgstr "Séquentiel"
+
+msgid "_btn_random"
+msgstr "Aléatoire"
+
+msgid "_btn_chg_list"
+msgstr "Changer la liste"
+
+msgid "Loaded List"
+msgstr "Liste chargée"
+
+msgid "Choose an option"
+msgstr "Choisir une option"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Cancel"
+msgstr "Annuler"

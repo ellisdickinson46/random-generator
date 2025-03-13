@@ -38,7 +38,7 @@ class RandomGenerator(tk.Tk):
 
         # Add callback function to update the window title when the list value is changed
         self.loaded_list_name.trace_add('write', callback=lambda a,b,c: self.title(
-            f"{self._('_window_title')} - {self._("Loaded List")}: {self.loaded_list_name.get()}"
+            f"{self._('_window_title')} - {self._('Loaded List')}: {self.loaded_list_name.get()}"
         ))
 
         # Define Window Properties
@@ -114,7 +114,7 @@ class RandomGenerator(tk.Tk):
             self, 
             diag_type="select",
             diag_title=self._("Choose an option"),
-            diag_message=f"{self._("Choose an option")}:",
+            diag_message=f"{self._('Choose an option')}:",
             diag_choices=available_lists,
             diag_size=(350, 350),
             diag_buttons=[

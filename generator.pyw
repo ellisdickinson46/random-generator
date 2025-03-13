@@ -155,7 +155,7 @@ class RandomGenerator(tk.Tk):
 
 
     def _post_selection_actions(self):
-        audio_thread = threading.Thread(target=self._play_sound)
+        audio_thread = threading.Thread(target=self._play_sound, daemon=True)
         audio_thread.start()
         self._random_bgcols()
 

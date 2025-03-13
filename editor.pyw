@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 import webbrowser
 
-from _helpers.custom_ttk import Limiter
+from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar
 from _helpers.configuration import EditorAppSettings
 from _helpers.apply_theme import apply_theme
 import __versions__

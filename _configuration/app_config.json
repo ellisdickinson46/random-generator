@@ -1,9 +1,12 @@
 {
     "generator_config": {
-        "app_title": "Random Generator",
         "theme": "auto",
-        "window_size": [650, 140],
-        "selected_sound": "ding.wav",
+        "language": "en",
+        "window_size": [
+            650,
+            140
+        ],
+        "sound_file": "ding.wav",
         "font": {
             "face": "Arial Black",
             "size": 42
@@ -21,10 +24,14 @@
                 "#FFFFFF",
                 "#000000"
             ]
+        },
+        "feature_flags": {
+            "enable_log_to_file": true,
+            "enable_random_colours": true,
+            "enable_sound": true
         }
     },
     "editor_config": {
-        "app_title": "Configuration Utility",
         "theme": "auto",
         "window_size": [800, 500]
     }

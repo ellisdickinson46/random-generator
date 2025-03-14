@@ -9,13 +9,15 @@ class GeneratorAppSettings:
         if self._raw_data:
             # Define the variable map with keys and their corresponding paths and optional fallbacks
             var_map = {
-                "app_title": (["app_title"], "App Window"),
                 "app_size": (["window_size"], (1024, 768)),
                 "app_fontface": (["font", "face"], "TkDefaultFont"),
                 "app_fontsize": (["font", "size"], 30),
                 "random_cols": (["colours", "random_colours"], False),
                 "app_light_text_col": (["colours", "light_text"], "#FAFAFA"),
-                "app_dark_text_col": (["colours", "dark_text"], "#1C1C1C")
+                "app_dark_text_col": (["colours", "dark_text"], "#1C1C1C"),
+                "enable_log_to_file": (["feature_flags", "enable_log_to_file"], True),
+                "sound_fname": (["sound_file"], ""),
+                "language": (["language"], "")
             }
 
             # Static values that don't need a path or fallback
@@ -47,7 +49,7 @@ class EditorAppSettings:
     def __init__(self, json_file_name):
         self._raw_data = JSONHandler(json_file_name).json_data.get("editor_config")
 
-        self.app_title = self._raw_data.get("app_title", "App Window")
+        self.app_title = "Configuration Utility"
         self.app_theme = self._get_app_theme()
         self.app_size = tuple(self._raw_data.get("window_size", (1024, 768)))
 

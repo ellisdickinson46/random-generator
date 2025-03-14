@@ -1,4 +1,3 @@
-from _helpers import darkdetect
 from _helpers.data import JSONHandler, get_nested
 
 
@@ -17,13 +16,13 @@ class GeneratorAppSettings:
                 "app_dark_text_col": (["colours", "dark_text"], "#1C1C1C"),
                 "enable_log_to_file": (["feature_flags", "enable_log_to_file"], True),
                 "sound_fname": (["sound_file"], ""),
-                "language": (["language"], "")
+                "language": (["language"], ""),
+                "app_theme": (["theme"], "auto")
             }
 
             # Static values that don't need a path or fallback
             static_values = {
-                "app_on_top": True,
-                "app_theme": self._get_app_theme()
+                "app_on_top": True
             }
 
             # Use the variable map to set attributes
@@ -37,25 +36,10 @@ class GeneratorAppSettings:
                 setattr(self, var_name, value)
 
 
-    def _get_app_theme(self) -> str:
-        match self._raw_data.get("theme"):
-            case "dark": return "dark"
-            case "light": return "light"
-            case "auto": return darkdetect.theme()
-            case _: raise KeyError
-
-
 class EditorAppSettings:
     def __init__(self, json_file_name):
         self._raw_data = JSONHandler(json_file_name).json_data.get("editor_config")
 
         self.app_title = "Configuration Utility"
-        self.app_theme = self._get_app_theme()
+        self.app_theme = self._raw_data.get("theme")
         self.app_size = tuple(self._raw_data.get("window_size", (1024, 768)))
-
-    def _get_app_theme(self) -> str:
-        match self._raw_data.get("theme"):
-            case "dark": return "dark"
-            case "light": return "light"
-            case "auto": return darkdetect.theme()
-            case _: raise KeyError

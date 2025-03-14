@@ -43,3 +43,15 @@ class ReadOnlyTextWithVar(tk.Frame):
             self.text_widget.delete("1.0", tk.END)
             self.text_widget.insert("1.0", new_text)
             self.text_widget.config(state="disabled")  # Re-disable input
+
+
+class OptionMenuWrapper(ttk.OptionMenu):
+    def __init__(self, parent, variable, values, default_index=0, **kwargs):
+        """Wrapper for ttk.OptionMenu to allow `values` as a keyword argument."""
+        if not values:
+            raise ValueError("OptionMenuWrapper requires a non-empty 'values' list.")
+        
+        self.variable = variable
+        self.values = values
+        
+        super().__init__(parent, variable, values[default_index], *values, **kwargs)

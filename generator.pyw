@@ -8,7 +8,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from _helpers.apply_theme import apply_theme
+from _helpers.apply_theme import ThemeHelper
 from _helpers.configuration import GeneratorAppSettings
 from _helpers.dialog_boxes import TTKDialog
 from _helpers.data import JSONHandler
@@ -16,21 +16,20 @@ from _helpers.logbook import Logger, StreamHandler, FileHandler
 from _helpers.playsound import playsound
 from _helpers.readability import determine_text_color
 from _helpers.polib import polib
+import __info__
 
-LOCALE_DIR = "_locales"
-LANGUAGE = "fr"
 
 class RandomGenerator(tk.Tk):
     def __init__(self, config: GeneratorAppSettings):
         tk.Tk.__init__(self)
+        self.config = config
         self.logger = self._initialize_logger()
         self.logger.info("Launching Random Generator...")
-        self.translations = self.set_language(LANGUAGE)
+        self.translations = self.set_language(self.config.language)
         self._ = self.translations.gettext
 
-        self._list_data = JSONHandler("_configuration/lists.json").json_data
-        self.app_icon = tk.PhotoImage(file='_configuration/icons/appicon_config.png')
-        self.config = config
+        self._list_data = JSONHandler(json_file=f"{__info__.CONFIG_DIR}/lists.json").json_data
+        self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png")
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
@@ -53,25 +52,28 @@ class RandomGenerator(tk.Tk):
         # Define the App ID for the Windows Shell Environment
         # (This allows the display of app icons in the taskbar and window grouping across scripts)
         if platform.system() == "Windows":
-            app_id = 'com.bytefloater.random-generator.generator'
+            app_id = getattr(__info__, "APP_ID", "fallback")
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
 
         # Apply the Sun Valley theme and title bar colour on platforms that support it
-        apply_theme(self, config.app_theme)
+        self.theme_helper = ThemeHelper(self, config.app_theme)
+        self.theme_helper.apply_theme()
         
         self._define_interface()
         self.mainloop()
 
+
     def set_language(self, lang_code):
         self.compile_translations()
         try:
-            lang_translations = gettext.translation("generator", localedir=LOCALE_DIR, languages=[lang_code])
+            lang_translations = gettext.translation("generator", localedir=__info__.LOCALE_DIR, languages=[lang_code])
             self.logger.info(f"Setting language... [Language: {lang_code}]")
         except FileNotFoundError:
-            lang_translations = gettext.translation("generator", localedir=LOCALE_DIR, languages=['en'])
+            lang_translations = gettext.translation("generator", localedir=__info__.LOCALE_DIR, languages=['en'])
             self.logger.warning(f"Failed to set langauge, falling back to English... [Language: {lang_code}]")
         lang_translations.install()
         return lang_translations
+
 
     def compile_translations(self, locales_dir="_locales"):
         self.logger.info("Compiling locales...")
@@ -89,7 +91,7 @@ class RandomGenerator(tk.Tk):
         """Create a logger instance with the necessary handlers"""
         logger = Logger("")
         # If the log file option is enabled, create a FileHandler instance
-        if True: # TODO: Implement option to disable this feature, if desired
+        if self.config.enable_log_to_file:
             filehandler = FileHandler('applog_generator.txt', level="DEBUG", bubble=True)
             logger.handlers.append(filehandler)
 
@@ -101,6 +103,9 @@ class RandomGenerator(tk.Tk):
 
 
     def _on_closing(self):
+        self.logger.debug("Stopping theme listener...")
+        self.theme_helper.stop_listener()
+        self.logger.info("Exitting...")
         self.destroy()
 
 
@@ -206,11 +211,11 @@ class RandomGenerator(tk.Tk):
 
 
     def _play_sound(self):
-        sound_fname = "ding.wav" # TODO: Change this to read from config
+        sound_fname = self.config.sound_fname
         if sound_fname:
             try:
                 self.logger.debug(f"Attempting to play sound... [{sound_fname}]")
-                playsound(f"_configuration/sounds/wav/{sound_fname}")
+                playsound(f"{__info__.CONFIG_DIR}/sounds/wav/{sound_fname}")
             except OSError as e:
                 self.logger.error(f"Error playing sound: {e}")
 
@@ -237,5 +242,5 @@ class RandomGenerator(tk.Tk):
 
 
 if __name__ == "__main__":
-    APP_CONFIG = GeneratorAppSettings("_configuration/app_config.json")
+    APP_CONFIG = GeneratorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json")
     instance = RandomGenerator(APP_CONFIG)

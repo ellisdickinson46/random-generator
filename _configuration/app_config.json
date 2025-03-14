@@ -26,13 +26,13 @@
             ]
         },
         "feature_flags": {
+            "enable_always_on_top": true,
             "enable_log_to_file": true,
-            "enable_random_colours": true,
             "enable_sound": true
         }
     },
     "editor_config": {
         "theme": "auto",
-        "window_size": [800, 500]
+        "window_size": [800, 700]
     }
 }

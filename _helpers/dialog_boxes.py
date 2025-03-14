@@ -1,10 +1,7 @@
-import ctypes
 import tkinter as tk
 from tkinter import ttk
-import platform
 
-from _helpers.apply_theme import apply_title_bar_theme
-from _helpers import sv_ttk
+from _helpers.apply_theme import ThemeHelper
 
 class TTKDialog(tk.Toplevel):
     def __init__(self, parent, diag_type, diag_size: tuple[int,int], diag_buttons: list[tuple[str, str]],
@@ -12,6 +9,7 @@ class TTKDialog(tk.Toplevel):
         # Initialize as a Toplevel window
         super().__init__(parent)
         self.lift()
+
         self.diag_type = diag_type
         self.diag_title = diag_title
         self.diag_message = diag_message
@@ -27,15 +25,15 @@ class TTKDialog(tk.Toplevel):
         self.attributes('-topmost', True)
         self.protocol("WM_DELETE_WINDOW", self._close_dialog)
 
-        if platform.system() == "Windows":
-            hwnd = ctypes.windll.user32.FindWindowW(None, self.diag_title)
-            apply_title_bar_theme(hwnd, f"dialog_{sv_ttk.get_theme()}")
-
         dispatcher = {
             "message": self._build_msg_dialog,
             "select": self._build_choice_dialog
         }
         dispatcher.get(diag_type)()
+
+        style_customisations = [('Treeview', {"rowheight": 35})]
+        self._theme_helper = ThemeHelper(self, parent.config.app_theme, customisations=style_customisations)
+        self._theme_helper.apply_theme()
 
         self.grab_set()
         self.focus()
@@ -43,8 +41,6 @@ class TTKDialog(tk.Toplevel):
     def _build_choice_dialog(self):
         """Function to build the interface for a selection dialog box"""
         # Define static interface elements
-        style = ttk.Style()
-        style.configure('Treeview', rowheight=35)
 
         self._content_title = ttk.Label(self, text=self.diag_message, anchor="w")
         self._choices_frm = tk.Frame(self)
@@ -65,7 +61,7 @@ class TTKDialog(tk.Toplevel):
                 command=lambda a=action: self._process_choice(a)
             )
 
-            # If button text matche the primary option, the button should use the accent colour
+            # If button text matched the primary option, the button should use the accent colour
             if self.primary_btn == action:
                 dynamic_btn.configure(style="Accent.TButton")
             
@@ -134,12 +130,14 @@ class TTKDialog(tk.Toplevel):
                     self.return_value = self._choices_view.item(focused_item)["text"]
             case _:
                 self.return_value = button_pressed
-        self.destroy()
+        self._close_dialog()
 
     def _close_dialog(self):
+        self._theme_helper.stop_listener()
         self.destroy()
 
-class MainApp(tk.Tk):
+
+class DemoApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Main Application")
@@ -167,5 +165,5 @@ class MainApp(tk.Tk):
         print(dialog.return_value)
 
 if __name__ == '__main__':
-    app = MainApp()
+    app = DemoApp()
     app.mainloop()

@@ -1,5 +1,7 @@
 import ctypes
+import gettext
 import json
+import os
 import platform
 import tkinter as tk
 from tkinter import ttk, font
@@ -39,7 +41,8 @@ class ConfigurationUtility(tk.Tk):
         self._language = tk.StringVar()
         self._enable_always_on_top = tk.BooleanVar()
         self._enable_log_to_file = tk.BooleanVar()
-        self._enable_sound = tk.StringVar()
+        self._enable_sound = tk.BooleanVar()
+        self._sound_file = tk.StringVar()
         self._font_face = tk.StringVar()
         self._font_size = tk.StringVar()
         self._slidervals = {
@@ -64,6 +67,30 @@ class ConfigurationUtility(tk.Tk):
 
         self._define_interface()
         self.mainloop()
+
+    def get_available_sounds(self) -> list:
+        sound_dir = f"{__info__.CONFIG_DIR}/sounds"
+        supported_formats = (".mp3", '.wav')
+        available_sounds = []
+        for file in os.listdir(sound_dir):
+            if file.endswith(supported_formats):
+                available_sounds.append(file)
+        return sorted(available_sounds)
+    
+    def get_supported_sounds(self) -> list:
+        available_locales = []
+        
+        # Traverse the directory and list all directories containing .mo files
+        for root, dirs, files in os.walk(f"{__info__.LOCALE_DIR}"):
+            if root.endswith('LC_MESSAGES'):
+                for file in files:
+                    if file.endswith('.mo'):
+                        # Extract the locale from the directory structure
+                        locale = os.path.basename(os.path.dirname(root))
+                        if locale not in available_locales:
+                            available_locales.append(locale)
+        return sorted(available_locales)
+
 
 
     def _change_intvar_by_amount(self, var: tk.IntVar, amount) -> None:
@@ -176,7 +203,8 @@ class ConfigurationUtility(tk.Tk):
     def _preference_tab_ui(self):
         fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
         fontfaces_available = font.families()
-        supported_languages = ("English", "French", "Spanish", "German")
+        supported_languages = self.get_supported_sounds()
+        sound_files_available = self.get_available_sounds()
 
         # Define interface section containers
         containers = [
@@ -196,10 +224,11 @@ class ConfigurationUtility(tk.Tk):
 
 
         settings = [
-            ("language", "Interface Language", OptionMenuWrapper, {"variable": self._language, "default_index": 2, "values": supported_languages}),
+            ("language", "Interface Language", OptionMenuWrapper, {"variable": self._language, "default_index": 0, "values": supported_languages}),
             ("ontop", "Always on top", ttk.Checkbutton, {"variable": self._enable_always_on_top}),
             ("log_to_file", "Log to file", ttk.Checkbutton, {"variable": self._enable_log_to_file}),
-            ("sound", "Enable Sound", ttk.Checkbutton, {"variable": self._enable_sound}),
+            ("enable_sound", "Enable Sound", ttk.Checkbutton, {"variable": self._enable_sound}),
+            ("sound_file", "Sound File", OptionMenuWrapper, {"variable": self._sound_file, "default_index": 0, "values": sound_files_available}),
             ("font_face", "Font Face", ttk.Combobox, {"textvariable": self._font_face, "values": fontfaces_available}),
             ("font_size", "Font Size", ttk.Combobox, {"textvariable": self._font_size, "values": fontsize_defaults}),
             ("random_colors", "Random Colours", ScrollableTreeview, {"height": 6}),

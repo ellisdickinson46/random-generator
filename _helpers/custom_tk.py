@@ -46,15 +46,21 @@ class ReadOnlyTextWithVar(tk.Frame):
 
 
 class OptionMenuWrapper(ttk.OptionMenu):
-    def __init__(self, parent, variable, values, default_index=0, **kwargs):
+    def __init__(self, parent, variable, values=None, default_index=0, **kwargs):
         """Wrapper for ttk.OptionMenu to allow `values` as a keyword argument."""
+        values = values or []  # Ensure values is always a list
+        
+        if values:
+            initial_value = values[default_index]
+        else:
+            initial_value = ""  # Use an empty string if no values are provided
+        
+        super().__init__(parent, variable, initial_value, *values, **kwargs)
+
+        # If values is empty, clear the variable to avoid showing an unintended value
         if not values:
-            raise ValueError("OptionMenuWrapper requires a non-empty 'values' list.")
-        
-        self.variable = variable
-        self.values = values
-        
-        super().__init__(parent, variable, values[default_index], *values, **kwargs)
+            variable.set("")
+
 
 class ScrollableTreeview(tk.Frame):
     def __init__(self, parent, **kwargs):

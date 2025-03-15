@@ -215,7 +215,7 @@ class RandomGenerator(tk.Tk):
         if sound_fname:
             try:
                 self.logger.debug(f"Attempting to play sound... [{sound_fname}]")
-                playsound(f"{__info__.CONFIG_DIR}/sounds/wav/{sound_fname}")
+                playsound(f"{__info__.CONFIG_DIR}/sounds/{sound_fname}")
             except OSError as e:
                 self.logger.error(f"Error playing sound: {e}")
 

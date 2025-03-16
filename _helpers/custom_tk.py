@@ -78,13 +78,22 @@ class ScrollableListbox(tk.Frame):
         self._treeview = ttk.Treeview(self, show=show, **kwargs)
         self._scrollbar = ttk.Scrollbar(self, command=self._treeview.yview)
         self._treeview.configure(yscrollcommand=self._scrollbar.set)
-        
+
         self._treeview.pack(side="left", fill="both", expand=True)
         self._scrollbar.pack(side="right", fill="y")
 
         self._treeview.column("#0", width=0)
         self._treeview.heading('#0', text=header)
-        # Placeholder items for the random colours treeview (TO BE REMOVED)
+    
+    def add_item(self, item):
+        self._treeview.insert("", "end", text=item)
+
+    def rem_item(self):
+        selection = self._treeview.selection()
+        for item in selection:
+            self._treeview.delete(item)
+    
+    def add_sample_items(self):
         for i in range(100):
-            text = f"Item #{i+1}"
+            text = f"Item #{i + 1}"
             self._treeview.insert("", "end", text=text)

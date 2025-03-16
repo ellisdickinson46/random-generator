@@ -35,8 +35,8 @@ class ConfigurationUtility(tk.Tk):
         self.protocol('WM_DELETE_WINDOW', self._on_closing)
 
         # Window Bindings
-        self.bind('<<NotebookTabChanged>>', lambda event: self.update_idletasks())
-        self.bind("<<ComboboxSelected>>",lambda e: self.focus())
+        self.bind('<<NotebookTabChanged>>', lambda _: self.update_idletasks())
+        self.bind("<<ComboboxSelected>>",lambda event: event.widget.selection_clear())
 
         # Interface Variables
         self._language = tk.StringVar()

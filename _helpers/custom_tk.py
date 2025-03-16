@@ -21,12 +21,17 @@ class Limiter(ttk.Scale):
 class ReadOnlyTextWithVar(tk.Frame):
     def __init__(self, parent, textvariable=None, **kwargs):
         super().__init__(parent)
+        kwargs.pop("state", None) # Prevent double calling of state in Text Widget
+        self.textvariable = textvariable
 
         self.text_widget = tk.Text(self, **kwargs, state="disabled")
-        self.text_widget.pack(expand=True, fill="both")
+        self.scrollbar = ttk.Scrollbar(self, command=self.text_widget.yview)
+        self.text_widget.configure(yscrollcommand=self.scrollbar.set)
 
-        self.textvariable = textvariable
-        self.yview = self.text_widget.yview
+        self.text_widget.grid(row=0, column=0, sticky="nesw")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
         # Initialize text from textvariable
         if self.textvariable is not None:

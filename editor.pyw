@@ -8,7 +8,7 @@ from tkinter import ttk, font
 import webbrowser
 
 from _helpers.apply_theme import ThemeHelper
-from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableTreeview
+from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from _helpers.configuration import EditorAppSettings
 from _helpers.data import JSONHandler
 import __info__
@@ -222,16 +222,42 @@ class ConfigurationUtility(tk.Tk):
 
         self._color_select_container.grid_rowconfigure(0, weight=1)
 
-
+        # Define configurable setting controls
         settings = [
-            ("language", "Interface Language", OptionMenuWrapper, {"variable": self._language, "default_index": 0, "values": supported_languages}),
-            ("ontop", "Always on top", ttk.Checkbutton, {"variable": self._enable_always_on_top}),
-            ("log_to_file", "Log to file", ttk.Checkbutton, {"variable": self._enable_log_to_file}),
-            ("enable_sound", "Enable Sound", ttk.Checkbutton, {"variable": self._enable_sound}),
-            ("sound_file", "Sound File", OptionMenuWrapper, {"variable": self._sound_file, "default_index": 0, "values": sound_files_available}),
-            ("font_face", "Font Face", ttk.Combobox, {"textvariable": self._font_face, "values": fontfaces_available}),
-            ("font_size", "Font Size", ttk.Combobox, {"textvariable": self._font_size, "values": fontsize_defaults}),
-            ("random_colors", "Random Colours", ScrollableTreeview, {"height": 6}),
+            ("language", "Interface Language", OptionMenuWrapper, {
+                "variable": self._language,
+                "default_index": 0,
+                "values": supported_languages
+            }),
+            ("ontop", "Always on top", ttk.Checkbutton, {
+                "variable": self._enable_always_on_top
+            }),
+            ("log_to_file", "Log to file", ttk.Checkbutton, {
+                "variable": self._enable_log_to_file
+            }),
+            ("enable_sound", "Enable Sound", ttk.Checkbutton, {
+                "variable": self._enable_sound
+            }),
+            ("sound_file", "Sound File", OptionMenuWrapper, {
+                "variable": self._sound_file,
+                "default_index": 0,
+                "values": sound_files_available
+            }),
+            ("font_face", "Font Face", ttk.Combobox, {
+                "textvariable": self._font_face,
+                "values": fontfaces_available,
+                "validate": "focusout",
+                "validatecommand": lambda: validate.is_in_list(fontfaces_available, self._font_face.get())
+            }),
+            ("font_size", "Font Size", ttk.Combobox, {
+                "textvariable": self._font_size,
+                "values": fontsize_defaults,
+                "validate": "focus",
+                "validatecommand": lambda: validate.is_integer(self._font_size.get())
+            }),
+            ("random_colors", "Random Colours", ScrollableListbox, {
+                "height": 6
+            }),
             ("ranodm_color_btns", "", tk.Frame, {})
         ]
         for i, (setting_name, description, control_type, control_options) in enumerate(settings):

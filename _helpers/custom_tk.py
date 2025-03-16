@@ -62,19 +62,24 @@ class OptionMenuWrapper(ttk.OptionMenu):
             variable.set("")
 
 
-class ScrollableTreeview(tk.Frame):
-    def __init__(self, parent, **kwargs):
+class ScrollableListbox(tk.Frame):
+    def __init__(self, parent, header="", **kwargs):
         super().__init__(parent)
+        kwargs.pop("show", None)
+        show = "tree"
+        if header:
+            show = "tree headings"
 
-        self.treeview = ttk.Treeview(self, show="tree", **kwargs)
-        self.scrollbar = ttk.Scrollbar(self, command=self.treeview.yview)
-        self.treeview.configure(yscrollcommand=self.scrollbar.set)
+        self._treeview = ttk.Treeview(self, show=show, **kwargs)
+        self._scrollbar = ttk.Scrollbar(self, command=self._treeview.yview)
+        self._treeview.configure(yscrollcommand=self._scrollbar.set)
         
-        self.treeview.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        self._treeview.pack(side="left", fill="both", expand=True)
+        self._scrollbar.pack(side="right", fill="y")
 
-        self.treeview.column("#0", width=0)
+        self._treeview.column("#0", width=0)
+        self._treeview.heading('#0', text=header)
         # Placeholder items for the random colours treeview (TO BE REMOVED)
         for i in range(100):
             text = f"Item #{i+1}"
-            self.treeview.insert("", "end", text=text)
+            self._treeview.insert("", "end", text=text)

@@ -35,7 +35,7 @@ class ConfigurationUtility(tk.Tk):
 
         # Window Bindings
         self.bind('<<NotebookTabChanged>>', lambda _: self.update_idletasks())
-        self.bind("<<ComboboxSelected>>",lambda event: event.widget.selection_clear())
+        self.bind("<<ComboboxSelected>>", self.post_select_focus)
 
         # Interface Variables
         self._language = tk.StringVar()
@@ -68,6 +68,10 @@ class ConfigurationUtility(tk.Tk):
 
         self._define_interface()
         self.mainloop()
+
+    def post_select_focus(self, event):
+        event.widget.selection_clear()
+        self.focus_set()
 
     def get_available_sounds(self) -> list:
         sound_dir = f"{__info__.CONFIG_DIR}/sounds"

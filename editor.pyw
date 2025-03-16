@@ -11,6 +11,7 @@ from _helpers.apply_theme import ThemeHelper
 from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from _helpers.configuration import EditorAppSettings
 from _helpers.data import JSONHandler
+from _helpers import validate
 import __info__
 
 

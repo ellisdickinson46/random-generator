@@ -1,5 +1,4 @@
 import ctypes
-import gettext
 import json
 import os
 import platform
@@ -51,7 +50,8 @@ class ConfigurationUtility(tk.Tk):
             "g": tk.IntVar(),
             "b": tk.IntVar()
         }
-        self._config_preview = tk.StringVar()
+        self._config_preview_ctntvar = tk.StringVar()
+        self._list_preview_ctntvar = tk.StringVar()
 
         # Add callback functions to change the colour displayed in the preview frame
         # when any colour value is chnaged.
@@ -78,18 +78,21 @@ class ConfigurationUtility(tk.Tk):
                 available_sounds.append(file)
         return sorted(available_sounds)
     
-    def get_supported_sounds(self) -> list:
+    def get_supported_languages(self) -> list:
         available_locales = []
-        
-        # Traverse the directory and list all directories containing .mo files
-        for root, dirs, files in os.walk(f"{__info__.LOCALE_DIR}"):
+        locale_dir = __info__.LOCALE_DIR
+
+        # Walk through the locale directory to find .mo files
+        for root, _, files in os.walk(locale_dir):
             if root.endswith('LC_MESSAGES'):
-                for file in files:
-                    if file.endswith('.mo'):
-                        # Extract the locale from the directory structure
-                        locale = os.path.basename(os.path.dirname(root))
-                        if locale not in available_locales:
-                            available_locales.append(locale)
+                # Check for .mo files in the directory
+                if any(file.endswith('.mo') for file in files):
+                    # Extract the locale from the parent directory of LC_MESSAGES
+                    locale = os.path.basename(os.path.dirname(root))
+                    if locale not in available_locales:
+                        available_locales.append(locale)
+
+        # Return a sorted list of locales
         return sorted(available_locales)
 
 
@@ -109,12 +112,6 @@ class ConfigurationUtility(tk.Tk):
         new_col = f"#{red_value:02x}{green_value:02x}{blue_value:02x}"
         self._colpreview.configure(background=new_col)
 
-    def _validate_input_integers(self, new_val):
-        if new_val == "" or new_val.isdigit():
-            return True
-        return False
-
-
     def _define_interface(self):
         self._tab_control = ttk.Notebook(self, takefocus=0)
         self._tab_control.pack(expand=True, fill="both")
@@ -126,7 +123,7 @@ class ConfigurationUtility(tk.Tk):
             ("_about_tab", "About"),
         ]
         for _, (tab_attr_name, tab_text) in enumerate(tabs):
-            setattr(self, tab_attr_name, ttk.Frame(self._tab_control))
+            setattr(self, tab_attr_name, tk.Frame(self._tab_control))
             self._tab_control.add(
                 getattr(self, tab_attr_name), text=tab_text
             )
@@ -162,56 +159,97 @@ class ConfigurationUtility(tk.Tk):
 
 
     def _editor_tab_ui(self):
-        self._editor_controls_frm = ttk.Frame(self._editor_tab)
-        self._editor_controls_frm.grid(row=0, column=0, padx=10, pady=10)
-
-        editor_controls = [
-            ("_creatlist_btn", "Create New List", ""),
-            ("_editlist_btn", "Edit Selected List", ""),
-            ("_removelist_btn", "Remove Select List", "")
+        treeviews = [
+            ("list", "Lists"),
+            ("items", "Items")
         ]
-        for i, (btn_attr_name, btn_text, btn_command) in enumerate(editor_controls):
-            setattr(self, btn_attr_name, ttk.Button(
-                self._editor_controls_frm, text=btn_text, command=btn_command
+        for i, (listbox_name, header) in enumerate(treeviews):
+            setattr(self, f"{listbox_name}_lstbx", ScrollableListbox(
+                self._editor_tab, header=header
             ))
-            getattr(self, btn_attr_name).grid(row=0, column=i, padx=5)
+            getattr(self, f"{listbox_name}_lstbx").grid(row=0, column=(i * 3), columnspan=3, sticky="nesw", padx=5, pady=5)
+            self._editor_tab.grid_columnconfigure(i * 3, weight=(i * 3))
+            
+            treeview_controls = [
+                (f"{listbox_name}_textbox", ttk.Entry, ""),
+                (f"{listbox_name}_add_btn", ttk.Button, "+"),
+                (f"{listbox_name}_rem_btn", ttk.Button, "-")
+            ]
+            for j, (ctrl_name, ctrl_type, text) in enumerate(treeview_controls):
+                setattr(self, ctrl_name, ctrl_type(
+                    self._editor_tab, text=text
+                ))
+                getattr(self, ctrl_name).grid(row=1, column=(j + (i * 3)), sticky="nesw", padx=5, pady=(0, 5))
+
+        self._editor_tab.grid_rowconfigure(0, weight=1)
 
 
     def _save_tab_ui(self):
-        self._save_controls_frm = ttk.Frame(self._save_tab)
-        self._save_controls_frm.grid(row=0, column=0, padx=10, pady=10, sticky="nw")
+        self._save_controls = ttk.Frame(self._save_tab)
+        self._save_controls.grid(row=0, column=0, padx=10, pady=10, columnspan=2, sticky="nw")
 
-        self._save_config_btn = ttk.Button(self._save_controls_frm, text="Save configuration...", style="Accent.TButton", takefocus=0, state="disabled")
-        self._save_lbl = ttk.Label(self._save_controls_frm, text="Check your configuration options before saving!")
-        
-        self._config_preview_frm = ttk.LabelFrame(self._save_tab, text=" Configuration Preview ")
-        self._config_preview_scrl = ttk.Scrollbar(self._config_preview_frm)
-        self._config_preview_lbl = ReadOnlyTextWithVar(self._config_preview_frm, takefocus=0, highlightthickness=0, border=0, textvariable=self._config_preview, yscrollcommand=self._config_preview_scrl.set, foreground="gray64")
-        self._config_preview_scrl.configure(command=self._config_preview_lbl.yview)
+        # Define save controls
+        save_controls = [
+            ("save_btn", "Save configuration...", ttk.Button, {"style": "Accent.TButton", "state": "disabled"}),
+            ("status_lbl", "Check your configuration options before saving!", ttk.Label, {})
+        ]
+        for i, (ctrl_attr_name, text, ctrl_type, options) in enumerate(save_controls):
+            setattr(self, f"_{ctrl_attr_name}", ctrl_type(self._save_controls, text=text, **options))
+            getattr(self, f"_{ctrl_attr_name}").grid(row=0, column=i, padx=(0, 10), sticky="ew")
 
-        self._save_config_btn.grid(row=0, column=0, padx=5)
-        self._save_lbl.grid(row=0, column=1, padx=(10,0))
-        self._config_preview_frm.grid(row=1, column=0, sticky="NESW", padx=5, pady=(0, 5))
-        self._config_preview_lbl.grid(row=0, column=0, sticky="NESW", padx=(10, 0), pady=10)
-        self._config_preview_scrl.grid(row=0, column=1, sticky="ns", pady=10, padx=(0, 10))
-        self._config_preview_frm.grid_rowconfigure(0, weight=1)
-        self._config_preview_frm.grid_columnconfigure(0, weight=1)
-        self._save_tab.grid_columnconfigure(0, weight=1)
+        # Define interface section containers
+        preview_containers = [
+            ("config_preview", "Configuration Preview", 1, {
+                "row": 1, "column": 0, "sticky": "nesw",
+                "padx": 5, "pady": 5
+            }),
+            ("list_preview", "List File Preview", 1, {
+                "row": 1, "column": 1, "sticky": "nesw",
+                "padx": 5, "pady": 5
+            })
+        ]
+        for i, (container_name, text, num_of_columns, grid_options) in enumerate(preview_containers):
+            setattr(self, f"_{container_name}_container", ttk.LabelFrame(
+                self._save_tab, text=f" {text} "
+            ))
+            getattr(self, f"_{container_name}_container").grid(**grid_options)
+            for x in range(num_of_columns):
+                getattr(self, f"_{container_name}_container").grid_columnconfigure(x, weight=1, uniform="column")
+            self._save_tab.grid_columnconfigure(i, weight=1, uniform="column")
+            setattr(self, f"_{container_name}_ctnt", ReadOnlyTextWithVar(
+                getattr(self, f"_{container_name}_container"), 
+                highlightthickness=0, border=0, foreground="gray64", 
+                textvariable=getattr(self, f"_{container_name}_ctntvar")
+            ))
+            getattr(self, f"_{container_name}_ctnt").pack(fill="both", expand=True, padx=10, pady=5)
+
         self._save_tab.grid_rowconfigure(1, weight=1)
-
-        self._config_preview.set(lorem)
+        self._config_preview_ctntvar.set(lorem)
+        self._list_preview_ctntvar.set(lorem)
 
     def _preference_tab_ui(self):
         fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
         fontfaces_available = font.families()
-        supported_languages = self.get_supported_sounds()
+        supported_languages = self.get_supported_languages()
         sound_files_available = self.get_available_sounds()
 
         # Define interface section containers
         containers = [
-            ("preferences", "Preferences", 2, {"row": 0, "column": 0, "rowspan": 2, "sticky": "nesw", "padx": 5, "pady": 5, "ipadx": 50, "ipady": 50}),
-            ("color_select", "Colour Selection", 1, {"row": 0, "column": 1, "sticky": "nesw", "padx": 5, "pady": (5, 2), "ipadx": 20, "ipady": 20}),
-            ("font_preview", "Font Preview", 1, {"row": 1, "column": 1, "sticky": "nesw", "padx": 5, "pady": (2, 5), "ipadx": 20, "ipady": 20})
+            ("preferences", "Preferences", 2, {
+                "row": 0, "column": 0,
+                "rowspan": 2, "sticky": "nesw",
+                "padx": 5, "pady": 5, "ipadx": 50, "ipady": 50
+            }),
+            ("color_select", "Colour Selection", 1, {
+                "row": 0, "column": 1,
+                "sticky": "nesw",
+                "padx": 5, "pady": (5, 2), "ipadx": 20, "ipady": 20
+            }),
+            ("font_preview", "Font Preview", 1, {
+                "row": 1, "column": 1,
+                "sticky": "nesw",
+                "padx": 5, "pady": (2, 5), "ipadx": 20, "ipady": 20
+            })
         ]
         for _, (container_name, text, num_of_columns, grid_options) in enumerate(containers):
             setattr(self, f"_{container_name}_container", ttk.LabelFrame(
@@ -268,11 +306,11 @@ class ConfigurationUtility(tk.Tk):
             setattr(self, f"_{setting_name}_ctrl", control_type(
                 self._preferences_container, **control_options
             ))
-            getattr(self, f"_{setting_name}_lbl").grid(row=i, column=0, sticky="ew")
+            getattr(self, f"_{setting_name}_lbl").grid(row=i, column=0, sticky="ew", padx=(5,0))
             getattr(self, f"_{setting_name}_ctrl").grid(row=i, column=1, sticky="ew", padx=10, pady=2)
             self._preferences_container.grid_rowconfigure(i, minsize=35)
 
-        # self._font_size_dropdown = ttk.Combobox(self._preference_container, textvariable=self._fontsize, values=fontsize_defaults, takefocus=0, validate="focusout", validatecommand=lambda: self._validate_input_integers(self._fontsize.get()))
+        # Define random colour treeview controls
         self._add_col_btn = ttk.Button(self._ranodm_color_btns_ctrl, text="Add")
         self._rem_col_btn = ttk.Button(self._ranodm_color_btns_ctrl, text="Remove")
         self._add_col_btn.grid(row=1, column=0, padx=(0, 2), sticky="ew")
@@ -280,10 +318,6 @@ class ConfigurationUtility(tk.Tk):
 
         self._ranodm_color_btns_ctrl.grid_columnconfigure(0, weight=1, uniform="_ranodm_color_btns_ctrl")
         self._ranodm_color_btns_ctrl.grid_columnconfigure(1, weight=1, uniform="_ranodm_color_btns_ctrl")
-
-
-
-
 
         # Define mixer controls and color preview frame
         self._colpreview = tk.Frame(self._color_select_container, background="black", width=40, highlightbackground="black", highlightthickness=1)
@@ -320,6 +354,10 @@ class ConfigurationUtility(tk.Tk):
         self._colselect_frm.grid_columnconfigure(2, weight=1)
         self._colselect_frm.grid_rowconfigure(0, weight=1)
 
+        # Define font preview
+        self._font_preview_lbl = ttk.Label(self._font_preview_container, text="Sample", anchor="nw")
+        self._font_preview_lbl.pack(fill="both", expand=True, padx=10, pady=10)
+
         # Tab Grid Settings
         self._preference_tab.grid_columnconfigure(0, weight=1, uniform="column")
         self._preference_tab.grid_columnconfigure(1, weight=1, uniform="column")
@@ -330,7 +368,6 @@ class ConfigurationUtility(tk.Tk):
     def _on_closing(self):
         self.theme_helper.stop_listener()
         self.destroy()
-
 
 
 if __name__ == "__main__":

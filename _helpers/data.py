@@ -1,7 +1,7 @@
 import asyncio
 import json
+import re
 
-from typing import Any
 from _helpers import aiofiles
 
 
@@ -21,7 +21,7 @@ class JSONHandler:
         except json.JSONDecodeError as e:
             raise e
 
-def get_nested(dictionary, keys, default: Any | None=None):
+def get_nested(dictionary, keys, default: any):
     """
     A wrapper for Python's `get` function that supports nested dictionaries.
     
@@ -43,3 +43,50 @@ def get_nested(dictionary, keys, default: Any | None=None):
             # If the dictionary structure is not valid or key not found
             return default
     return dictionary
+
+def custom_json_dump(data, **kwargs):
+    indent = kwargs.get('indent', None)
+    result = []
+    outer_indent = ' ' * indent if indent is not None else ''
+    inner_indent = ' ' * (indent * 2) if indent is not None else ''
+
+    for key, value in data.items():
+        # Add key with item count
+        result.append(f'{outer_indent}{json.dumps(key, **kwargs)} ({len(value)} items): [')
+        for item in value:
+            result.append(f'{inner_indent}{json.dumps(item, **kwargs)},')
+        # Remove trailing comma and close the list
+        if value:
+            result[-1] = result[-1][:-1]
+        result.append(f'{outer_indent}],')
+
+    # Remove trailing comma
+    if result:
+        result[-1] = result[-1][:-1]
+
+    # Handle indentation and format properly
+    newline = '\n' if indent is not None else ''
+    return f'{{{newline}' + f'{newline}'.join(result) + f'{newline}}}'
+
+
+def hex_to_rgb(hex_color):
+    # Regular expression to match valid hex color formats
+    pattern = r'^(#|0x)?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$'
+    
+    match = re.match(pattern, hex_color)
+    if not match:
+        return None
+    
+    hex_value = match.group(2)
+    
+    if len(hex_value) == 3:
+        # Expand shorthand hex to full form, e.g., "f00" -> "ff0000"
+        hex_value = ''.join(c * 2 for c in hex_value)
+    
+    try:
+        r = int(hex_value[0:2], 16)
+        g = int(hex_value[2:4], 16)
+        b = int(hex_value[4:6], 16)
+        return (r, g, b)
+    except ValueError:
+        return None

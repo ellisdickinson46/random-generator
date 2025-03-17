@@ -9,13 +9,9 @@ import webbrowser
 from _helpers.apply_theme import ThemeHelper
 from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from _helpers.configuration import EditorAppSettings
-from _helpers.data import JSONHandler
+from _helpers.data import JSONHandler, custom_json_dump, get_nested, hex_to_rgb
 from _helpers import validate
 import __info__
-
-
-lorem = JSONHandler("_configuration/app_config.json").json_data
-lorem = json.dumps(lorem, indent=4, separators=(',', ': '))
 
 
 class ConfigurationUtility(tk.Tk):
@@ -23,6 +19,8 @@ class ConfigurationUtility(tk.Tk):
         tk.Tk.__init__(self)
 
         self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+        self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json").json_data
+        self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json").json_data
 
         # Window Properties
         self.geometry('x'.join(str(x) for x in config.app_size))
@@ -36,6 +34,7 @@ class ConfigurationUtility(tk.Tk):
         # Window Bindings
         self.bind('<<NotebookTabChanged>>', lambda _: self.update_idletasks())
         self.bind("<<ComboboxSelected>>", self.post_select_focus)
+        self.bind("<Button-1>", self.clear_focus)
 
         # Interface Variables
         self._language = tk.StringVar()
@@ -67,7 +66,24 @@ class ConfigurationUtility(tk.Tk):
         self.theme_helper.apply_theme()
 
         self._define_interface()
+        self.populate_interface()
         self.mainloop()
+
+    def clear_focus(self, event):
+        # If the clicked widget is the root window, clear focus
+        focusable_widgets = (ttk.Entry, ttk.Button, ttk.Combobox, ttk.Spinbox, ttk.Scale)
+
+        # List of focusable tk widget types
+        tk_focusable_classes = ['Entry', 'Button', 'Text', 'Scale', 'Spinbox']
+
+        # Check if the clicked widget is focusable
+        if (
+            isinstance(event.widget, focusable_widgets) or 
+            event.widget.winfo_class() in tk_focusable_classes
+        ):
+            return  # Let the widget keep focus
+        
+        self.focus_set()
 
     def post_select_focus(self, event):
         event.widget.selection_clear()
@@ -99,6 +115,21 @@ class ConfigurationUtility(tk.Tk):
         # Return a sorted list of locales
         return sorted(available_locales)
 
+    def populate_interface(self):
+        self._enable_always_on_top.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_always_on_top"], False))
+        self._enable_log_to_file.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_log_to_file"], False))
+        self._enable_sound.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_sound"], False))
+
+        for item in self.list_data:
+            self.list_lstbx.add_item(item)
+
+        format_options = {
+            "indent": 4,
+            "separators": (',', ': '),
+            "ensure_ascii": False
+        }
+        self._config_preview_ctntvar.set(json.dumps(self.loaded_config, **format_options))
+        self._list_preview_ctntvar.set(custom_json_dump(self.list_data, **format_options))
 
 
     def _change_intvar_by_amount(self, var: tk.IntVar, amount) -> None:
@@ -114,7 +145,19 @@ class ConfigurationUtility(tk.Tk):
         blue_value = self._slidervals["b"].get()
 
         new_col = f"#{red_value:02x}{green_value:02x}{blue_value:02x}"
+        self._hexentry.delete(0, tk.END)
+        self._hexentry.insert(0, new_col)
         self._colpreview.configure(background=new_col)
+
+    def update_from_hex(self, color_input) -> None:
+        rgb_tuple = hex_to_rgb(color_input)
+        if rgb_tuple:
+            print("Update from hex")
+            r, g, b = rgb_tuple
+            self._slider_r.set(r)
+            self._slider_g.set(g)
+            self._slider_b.set(b)
+        
 
     def _define_interface(self):
         self._tab_control = ttk.Notebook(self, takefocus=0)
@@ -169,23 +212,47 @@ class ConfigurationUtility(tk.Tk):
         ]
         for i, (listbox_name, header) in enumerate(treeviews):
             setattr(self, f"{listbox_name}_lstbx", ScrollableListbox(
-                self._editor_tab, header=header
+                self._editor_tab, header=header,
             ))
+            # getattr(self, f"{listbox_name}_lstbx").treeview.bind("<<TreeviewSelect>>", lambda e, lb=getattr(self, f"{listbox_name}_lstbx"): self._load_list(e, lb))
+            # listbox.treeview.bind("<<TreeviewSelect>>", lambda e, lb=listbox: self._load_list(e, lb))
             getattr(self, f"{listbox_name}_lstbx").grid(row=0, column=(i * 3), columnspan=3, sticky="nesw", padx=5, pady=5)
             self._editor_tab.grid_columnconfigure(i * 3, weight=(i * 3))
-            
+
             treeview_controls = [
-                (f"{listbox_name}_textbox", ttk.Entry, ""),
-                (f"{listbox_name}_add_btn", ttk.Button, "+"),
-                (f"{listbox_name}_rem_btn", ttk.Button, "-")
+                (f"{listbox_name}_textbox", ttk.Entry, "", {}),
+                (f"{listbox_name}_add_btn", ttk.Button, "+", {}),
+                (f"{listbox_name}_rem_btn", ttk.Button, "-", {})
             ]
-            for j, (ctrl_name, ctrl_type, text) in enumerate(treeview_controls):
+            for j, (ctrl_name, ctrl_type, text, ctrl_options) in enumerate(treeview_controls):
                 setattr(self, ctrl_name, ctrl_type(
-                    self._editor_tab, text=text
+                    self._editor_tab, text=text, **ctrl_options
                 ))
                 getattr(self, ctrl_name).grid(row=1, column=(j + (i * 3)), sticky="nesw", padx=5, pady=(0, 5))
 
+        # self.list_lstbx.treeview.bind("<<TreeviewSelect>>", self._load_list)
+        self.after_idle(lambda: self.list_lstbx.treeview.bind("<<TreeviewSelect>>", self._load_list))
+
+        self.list_add_btn.configure(command=lambda: self.list_lstbx.add_item(self.list_textbox.get()))
+        self.list_rem_btn.configure(command=self.list_lstbx.rem_item)
+        self.items_add_btn.configure(command=lambda: self.items_lstbx.add_item(self.items_textbox.get()))
+        self.items_rem_btn.configure(command=self.items_lstbx.rem_item)
+
         self._editor_tab.grid_rowconfigure(0, weight=1)
+
+    def _load_list(self, _):
+        for items in self.items_lstbx.treeview.get_children():
+            self.items_lstbx.treeview.delete(items)
+
+        for item in self.list_lstbx.treeview.selection():
+            # Get the text values of the selected row
+            values = self.list_lstbx.treeview.item(item, 'text')
+            print(f"Loading: {values}")  # Prints the tuple of row values
+            
+            for item in self.list_data.get(values):
+                self.items_lstbx.add_item(item)
+
+
 
 
     def _save_tab_ui(self):
@@ -228,8 +295,6 @@ class ConfigurationUtility(tk.Tk):
             getattr(self, f"_{container_name}_ctnt").pack(fill="both", expand=True, padx=10, pady=5)
 
         self._save_tab.grid_rowconfigure(1, weight=1)
-        self._config_preview_ctntvar.set(lorem)
-        self._list_preview_ctntvar.set(lorem)
 
     def _preference_tab_ui(self):
         fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
@@ -331,36 +396,44 @@ class ConfigurationUtility(tk.Tk):
         
         for i, color in enumerate(["r", "g", "b"]):
             setattr(self, f"_label_{color}", ttk.Label(
-                self._colselect_frm, text=color.upper())
+                self._colselect_frm, text=color.upper(), anchor="e")
             )
-            getattr(self, f"_label_{color}").grid(row=i, column=1, sticky="ew", padx=10)
+            getattr(self, f"_label_{color}").grid(row=i, column=0, sticky="ew", padx=10)
             setattr(self, f"_slider_{color}", Limiter(
                 self._colselect_frm, variable=self._slidervals[color], to=255, precision=0)
             )
-            getattr(self, f"_slider_{color}").grid(row=i, column=2, sticky="ew", padx=5)
+            getattr(self, f"_slider_{color}").grid(row=i, column=1, sticky="ew", padx=5)
             setattr(self, f"_minus_{color}", ttk.Button(
                 self._colselect_frm, text="-", takefocus=0,
                 command=lambda color=color: self._change_intvar_by_amount(self._slidervals[color], -1))
             )
-            getattr(self, f"_minus_{color}").grid(row=i, column=3, sticky="ew")
+            getattr(self, f"_minus_{color}").grid(row=i, column=2, sticky="ew")
             setattr(self, f"_sliderval_lbl_{color}", ttk.Label(
                 self._colselect_frm, textvariable=self._slidervals[color], anchor="center")
             )
-            getattr(self, f"_sliderval_lbl_{color}").grid(row=i, column=4, sticky="ew", padx=5)
+            getattr(self, f"_sliderval_lbl_{color}").grid(row=i, column=3, sticky="ew", padx=5)
             setattr(self, f"_plus_{color}", ttk.Button(
                 self._colselect_frm, text="+", takefocus=0,
                 command=lambda color=color: self._change_intvar_by_amount(self._slidervals[color], 1))
             )
-            getattr(self, f"_plus_{color}").grid(row=i, column=5, sticky="ew")
+            getattr(self, f"_plus_{color}").grid(row=i, column=4, sticky="ew")
             self._colselect_frm.grid_rowconfigure(i, minsize=35)
+
+        self._hexentry_lbl = ttk.Label(self._colselect_frm, text="Hex")
+        self._hexentry_lbl.grid(row=3, column=0, sticky="ew", padx=10)
+        self._hexentry = ttk.Entry(self._colselect_frm)
+        self._hexentry.grid(row=3, column=1, columnspan=4, sticky="ew", pady=5)
+        self._hexentry.bind("<FocusOut>", lambda _: self.update_from_hex(self._hexentry.get()))
         
-        self._colselect_frm.grid_columnconfigure(4, minsize=40)
-        self._colselect_frm.grid_columnconfigure(2, weight=1)
+        self._colselect_frm.grid_columnconfigure(3, minsize=40)
+        self._colselect_frm.grid_columnconfigure(1, weight=1)
         self._colselect_frm.grid_rowconfigure(0, weight=1)
 
         # Define font preview
         self._font_preview_lbl = ttk.Label(self._font_preview_container, text="Sample", anchor="nw")
         self._font_preview_lbl.pack(fill="both", expand=True, padx=10, pady=10)
+        self._font_face.trace_add('write', lambda *args: self.update_font_preview())
+        self._font_size.trace_add('write', lambda *args: self.update_font_preview())
 
         # Tab Grid Settings
         self._preference_tab.grid_columnconfigure(0, weight=1, uniform="column")
@@ -372,6 +445,26 @@ class ConfigurationUtility(tk.Tk):
     def _on_closing(self):
         self.theme_helper.stop_listener()
         self.destroy()
+    
+    def update_font_preview(self):
+        font_face = self._font_face.get()
+        # Check if the font face is a string
+        if isinstance(font_face, str):
+            print(f"Font face: {font_face}")
+        else:
+            print("Invalid font face: Must be a string")
+            return
+
+        # Attempt to convert font size to an integer
+        try:
+            font_size = int(self._font_size.get())
+            print(f"Font size: {font_size}")
+        except ValueError:
+            print("Invalid font size: Must be a number")
+            return
+
+        # If both conditions are met, update the preview
+        self._font_preview_lbl.configure(font=(font_face, font_size))
 
 
 if __name__ == "__main__":

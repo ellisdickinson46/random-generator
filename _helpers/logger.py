@@ -3,7 +3,7 @@ from _helpers.logbook import Logger, StreamHandler, FileHandler
 
 def init_logger(log_name: str, log_level: str, log_to_file: bool = False) -> Logger:
         """Create a logger instance with the necessary handlers"""
-        format_string = '[{record.time:%Y-%m-%d %H:%M:%S.%f}] {record.level_name:<8} : {record.message}'
+        format_string = '[{record.time:%Y-%m-%d %H:%M:%S.%f}] {record.level_name:<8} : [{record.func_name}] {record.message}'
         logger = Logger(log_name)
         # If the log file option is enabled, create a FileHandler instance
         if log_to_file:

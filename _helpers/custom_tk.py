@@ -91,7 +91,6 @@ class ScrollableListbox(tk.Frame):
             existing_items = [self.treeview.item(child, 'text') for child in self.treeview.get_children()]
             
             if item not in existing_items:
-                print(f"Adding: {item}")
                 # Capture the ID of the newly inserted item
                 new_item_id = self.treeview.insert("", "end", text=item)
                 

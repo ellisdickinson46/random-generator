@@ -1,26 +1,38 @@
+from enum import Enum
 import tkinter as tk
 from tkinter import ttk
 from _helpers.apply_theme import ThemeHelper
 
+class TTKDialogAction(Enum):
+    OK = "ok"
+    CANCEL = "cancel"
+
+class TTKDialogType(Enum):
+    MESSAGE = "message"
+    SELECT = "select"
 
 class TTKDialog(tk.Toplevel):
-    TYPE_MESSAGE = "message"
-    TYPE_SELECT = "select"
-
-    ACTION_OK = "ok"
-    ACTION_CANCEL = "cancel"
-
-    def __init__(self, parent, diag_type, diag_size: tuple[int, int], diag_buttons: list[tuple[str, str]],
-             diag_title="", diag_message="", diag_choices=None, primary_btn=""):
+    def __init__(self, parent, diag_type: TTKDialogType, diag_size: tuple[int, int], diag_buttons: list[tuple[str, TTKDialogAction]],
+             diag_title="", diag_message="", diag_choices=None, primary_action=TTKDialogAction):
         super().__init__(parent)
         self.lift()
+
+        if not isinstance(diag_type, TTKDialogType):
+            raise TypeError(f"Invalid dialog type: {diag_type}. Must be a TTKDialogType.")
+
+        for _, action in diag_buttons:
+            if not isinstance(action, TTKDialogAction):
+                raise TypeError(f"Invalid dialog action: {action}. Must be a TTKDialogAction.")
+
+        if primary_action and not isinstance(primary_action, TTKDialogAction):
+            raise TypeError(f"Invalid primary button action: {primary_action}. Must be a TTKDialogAction.")
 
         self.diag_type = diag_type
         self.diag_title = diag_title
         self.diag_message = diag_message
         self.diag_choices = diag_choices or []
         self.diag_buttons = diag_buttons
-        self.primary_btn = primary_btn
+        self.primary_action = primary_action
         self.return_value = ""
 
         # Configure window options
@@ -30,11 +42,12 @@ class TTKDialog(tk.Toplevel):
         self.attributes('-topmost', True)
         self.protocol("WM_DELETE_WINDOW", self._close_dialog)
 
-        # Build dialog interface based on type
-        if diag_type == self.TYPE_MESSAGE:
-            self._build_msg_dialog()
-        elif diag_type == self.TYPE_SELECT:
-            self._build_choice_dialog()
+        diag_type_map = {
+            TTKDialogType.MESSAGE: self._build_msg_dialog,
+            TTKDialogType.SELECT: self._build_choice_dialog
+        }
+        if diag_type in diag_type_map:
+            diag_type_map[diag_type]()
 
         # Apply theme if parent has config and app_theme
         if hasattr(parent, 'config') and hasattr(parent.config, 'app_theme'):
@@ -69,7 +82,7 @@ class TTKDialog(tk.Toplevel):
                 self._button_frm, text=text,
                 command=lambda a=action: self._process_choice(a)
             )
-            if action == self.primary_btn:
+            if action == self.primary_action:
                 dynamic_btn.configure(style="Accent.TButton")
 
             dynamic_btn.grid(row=0, column=i+1, padx=5, ipadx=10, sticky="NEWS")
@@ -109,8 +122,8 @@ class TTKDialog(tk.Toplevel):
         self._content_frm.pack(expand=True, fill="both", padx=10, pady=10)
 
     def _process_choice(self, button_pressed):
-        if self.diag_type == self.TYPE_SELECT:
-            if button_pressed == self.ACTION_CANCEL:
+        if self.diag_type == TTKDialogType.SELECT:
+            if button_pressed == TTKDialogAction.CANCEL:
                 self.return_value = ""
             else:
                 focused_item = self._choices_view.focus()

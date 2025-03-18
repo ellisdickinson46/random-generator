@@ -3,7 +3,7 @@ import gettext
 import os
 import platform
 import random
-import sys
+import signal
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -12,7 +12,7 @@ from _helpers.apply_theme import ThemeHelper
 from _helpers.configuration import GeneratorAppSettings
 from _helpers.dialog_boxes import TTKDialog
 from _helpers.data import JSONHandler
-from _helpers.logbook import Logger, StreamHandler, FileHandler
+from _helpers.logger import init_logger
 from _helpers.playsound import playsound
 from _helpers.readability import determine_text_color
 from _helpers.polib import polib
@@ -23,7 +23,7 @@ class RandomGenerator(tk.Tk):
     def __init__(self, config: GeneratorAppSettings):
         tk.Tk.__init__(self)
         self.config = config
-        self.logger = self._initialize_logger()
+        self.logger = init_logger("generator", "DEBUG", getattr(self.config, "enable_log_to_file", False))
         self.logger.info("Launching Random Generator...")
         self.translations = self.set_language(self.config.language)
         self._ = self.translations.gettext
@@ -45,6 +45,7 @@ class RandomGenerator(tk.Tk):
         self.attributes('-topmost', self.config.app_on_top)
         self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.protocol('WM_DELETE_WINDOW', self._on_closing)
+        signal.signal(signal.SIGINT, self._on_closing)
         self.resizable(0,0)
         self.style.configure('MatchedBg.TButton')
         self.iconphoto(True, self.app_icon)
@@ -62,9 +63,17 @@ class RandomGenerator(tk.Tk):
         self._define_interface()
         self.mainloop()
 
+    
+    def _on_closing(self, *_):
+        self.logger.info("Termination signal received")
+        self.logger.debug("  -> Stopping theme listener...")
+        self.theme_helper.stop_listener()
+        self.logger.info("  -> Exitting...")
+        self.destroy()
+
 
     def set_language(self, lang_code):
-        self.compile_translations()
+        self.compile_translations(__info__.LOCALE_DIR)
         try:
             lang_translations = gettext.translation("generator", localedir=__info__.LOCALE_DIR, languages=[lang_code])
             self.logger.info(f"Setting language... [Language: {lang_code}]")
@@ -75,64 +84,40 @@ class RandomGenerator(tk.Tk):
         return lang_translations
 
 
-    def compile_translations(self, locales_dir="_locales"):
+    def compile_translations(self, locales_dir: str):
         self.logger.info("Compiling locales...")
         for lang in os.listdir(locales_dir):
             po_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.po")
             mo_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.mo")
 
             if os.path.exists(po_file):
-                self.logger.debug(f"Compiling {po_file} -> {mo_file}")
+                self.logger.debug(f"  -> Compiling {po_file} -> {mo_file}")
                 profile = polib.pofile(po_file)
                 profile.save_as_mofile(mo_file)
 
 
-    def _initialize_logger(self) -> Logger:
-        """Create a logger instance with the necessary handlers"""
-        logger = Logger("")
-        # If the log file option is enabled, create a FileHandler instance
-        if self.config.enable_log_to_file:
-            filehandler = FileHandler('applog_generator.txt', level="DEBUG", bubble=True)
-            logger.handlers.append(filehandler)
-
-        # If the script is attached to a terminal, create a StreamHandler instance
-        if sys.stdout:
-             streamhandler = StreamHandler(sys.stdout, level="DEBUG", bubble=True)
-             logger.handlers.append(streamhandler)
-        return logger
-
-
-    def _on_closing(self):
-        self.logger.debug("Stopping theme listener...")
-        self.theme_helper.stop_listener()
-        self.logger.info("Exitting...")
-        self.destroy()
-
-
     def _change_list(self):
-        self.logger.info("Changing list...")
+        self.logger.info("Change list requested...")
         available_lists = self._list_data.keys()
 
-        self.logger.debug("Launching choice dialog...")
         self.attributes('-topmost', False)
         dialog = TTKDialog(
-            self, 
-            diag_type="select",
+            self, TTKDialog.TYPE_SELECT,
             diag_title=self._("Choose an option"),
             diag_message=f"{self._('Choose an option')}:",
             diag_choices=available_lists,
             diag_size=(350, 350),
             diag_buttons=[
-                (self._("Cancel"), "cancel"),
-                (self._("OK"), "ok")
+                (self._("Cancel"), TTKDialog.ACTION_CANCEL),
+                (self._("OK"), TTKDialog.ACTION_OK)
             ],
-            primary_btn="ok"
+            primary_btn=TTKDialog.ACTION_OK
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)
 
         if dialog.return_value:
-            self.logger.info(f"Selecting list '{dialog.return_value}'")
+            self.logger.info(f"Selected list: '{dialog.return_value}'")
             self.loaded_list_name.set(dialog.return_value)
             self.call_index = 0
             self._item_lbl.configure(text="")

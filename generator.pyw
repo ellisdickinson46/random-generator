@@ -63,12 +63,12 @@ class RandomGenerator(tk.Tk):
         self._define_interface()
         self.mainloop()
 
-    
+
     def _on_closing(self, *_):
         self.logger.info("Termination signal received")
         self.logger.debug("  -> Stopping theme listener...")
         self.theme_helper.stop_listener()
-        self.logger.info("  -> Exitting...")
+        self.logger.info("  -> Exiting...")
         self.destroy()
 
 

@@ -10,7 +10,7 @@ from tkinter import ttk
 
 from _helpers.apply_theme import ThemeHelper
 from _helpers.configuration import GeneratorAppSettings
-from _helpers.dialog_boxes import TTKDialog
+from _helpers.dialog_boxes import TTKDialog, TTKDialogType, TTKDialogAction
 from _helpers.data import JSONHandler
 from _helpers.logger import init_logger
 from _helpers.playsound import playsound
@@ -102,16 +102,16 @@ class RandomGenerator(tk.Tk):
 
         self.attributes('-topmost', False)
         dialog = TTKDialog(
-            self, TTKDialog.TYPE_SELECT,
+            self, TTKDialogType.SELECT,
             diag_title=self._("Choose an option"),
             diag_message=f"{self._('Choose an option')}:",
             diag_choices=available_lists,
             diag_size=(350, 350),
             diag_buttons=[
-                (self._("Cancel"), TTKDialog.ACTION_CANCEL),
-                (self._("OK"), TTKDialog.ACTION_OK)
+                (self._("Cancel"), TTKDialogAction.CANCEL),
+                (self._("OK"), TTKDialogAction.OK)
             ],
-            primary_btn=TTKDialog.ACTION_OK
+            primary_btn=TTKDialogAction.OK
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)

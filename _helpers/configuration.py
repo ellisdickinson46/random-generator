@@ -1,9 +1,10 @@
-from _helpers.data import JSONHandler, get_nested
-
+from _helpers.data import JSONHandler, JSONValidator, get_nested
 
 class GeneratorAppSettings:
-    def __init__(self, json_file_name):
+    def __init__(self, json_file_name, schema):
         self._raw_data = JSONHandler(json_file_name).json_data.get("generator_config", None)
+        self.validator = JSONValidator(schema=schema)
+        self.validator.validate(self._raw_data)
 
         if self._raw_data:
             # Define the variable map with keys and their corresponding paths and optional fallbacks
@@ -37,8 +38,10 @@ class GeneratorAppSettings:
 
 
 class EditorAppSettings:
-    def __init__(self, json_file_name):
+    def __init__(self, json_file_name, schema):
         self._raw_data = JSONHandler(json_file_name).json_data.get("editor_config")
+        self.validator = JSONValidator(schema=schema)
+        self.validator.validate(self._raw_data)
 
         self.app_title = "Configuration Utility"
         self.app_theme = self._raw_data.get("theme")

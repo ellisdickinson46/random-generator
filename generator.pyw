@@ -111,7 +111,7 @@ class RandomGenerator(tk.Tk):
                 (self._("Cancel"), TTKDialogAction.CANCEL),
                 (self._("OK"), TTKDialogAction.OK)
             ],
-            primary_btn=TTKDialogAction.OK
+            primary_action=TTKDialogAction.OK
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)
@@ -227,5 +227,8 @@ class RandomGenerator(tk.Tk):
 
 
 if __name__ == "__main__":
-    APP_CONFIG = GeneratorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json")
-    instance = RandomGenerator(APP_CONFIG)
+    try:
+        APP_CONFIG = GeneratorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json", __info__.GENERATOR_SCHEMA)
+        instance = RandomGenerator(APP_CONFIG)
+    except Exception as e:
+        print(e)

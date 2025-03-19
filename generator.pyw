@@ -28,7 +28,7 @@ class RandomGenerator(tk.Tk):
         self.translations = self.set_language(self.config.language)
         self._ = self.translations.gettext
 
-        self._list_data = JSONHandler(json_file=f"{__info__.CONFIG_DIR}/lists.json").json_data
+        self._list_data = JSONHandler(json_file=f"{__info__.CONFIG_DIR}/lists.json")
         self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png")
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()

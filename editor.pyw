@@ -2,6 +2,7 @@ import ctypes
 import json
 import os
 import platform
+import signal
 import tkinter as tk
 from tkinter import ttk, font
 import webbrowser
@@ -10,6 +11,7 @@ from _helpers.apply_theme import ThemeHelper
 from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from _helpers.configuration import EditorAppSettings
 from _helpers.data import JSONHandler, custom_json_dump, get_nested, hex_to_rgb
+from _helpers.logger import init_logger
 from _helpers import validate
 import __info__
 
@@ -17,19 +19,16 @@ import __info__
 class ConfigurationUtility(tk.Tk):
     def __init__(self, config: EditorAppSettings):
         tk.Tk.__init__(self)
+        self.config = config
 
-        self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+        self.logger = init_logger("editor", "DEBUG", True)
+        self.logger.info("Launching Editor...")
+
         self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json").json_data
         self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json").json_data
+        self.theme_helper = ThemeHelper(self, config.app_theme)
 
-        # Window Properties
-        self.geometry('x'.join(str(x) for x in config.app_size))
-        self.title(config.app_title)
-        self.resizable(0, 0)
-        self.attributes('-topmost', True)
-        self.after_idle(self.attributes,'-topmost', False)
-        self.iconphoto(True, self.app_icon)
-        self.protocol('WM_DELETE_WINDOW', self._on_closing)
+        self._set_window_properties()
 
         # Window Bindings
         self.bind('<<NotebookTabChanged>>', lambda _: self.update_idletasks())
@@ -37,52 +36,66 @@ class ConfigurationUtility(tk.Tk):
         self.bind("<Button-1>", self.clear_focus)
 
         # Interface Variables
-        self._language = tk.StringVar()
-        self._enable_always_on_top = tk.BooleanVar()
-        self._enable_log_to_file = tk.BooleanVar()
-        self._enable_sound = tk.BooleanVar()
-        self._sound_file = tk.StringVar()
-        self._font_face = tk.StringVar()
-        self._font_size = tk.StringVar()
-        self._slidervals = {
-            "r": tk.IntVar(),
-            "g": tk.IntVar(),
-            "b": tk.IntVar()
-        }
-        self._config_preview_ctntvar = tk.StringVar()
-        self._list_preview_ctntvar = tk.StringVar()
-
-        # Add callback functions to change the colour displayed in the preview frame
-        # when any colour value is chnaged.
-        for color in ("r", "g", "b"):
-            self._slidervals[color].trace_add('write', callback=lambda *args: self.update_colpreview())
-
-        if platform.system() == "Windows":
-            app_id = getattr(__info__, "APP_ID", "fallback")
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+        vars_to_define = [
+            ("_language", tk.StringVar(), self.update_json_previews),
+            ("_theme", tk.StringVar(), self.update_json_previews),
+            ("_enable_always_on_top", tk.BooleanVar(), self.update_json_previews),
+            ("_enable_log_to_file", tk.BooleanVar(), self.update_json_previews),
+            ("_enable_sound", tk.BooleanVar(), self.update_json_previews),
+            ("_sound_file", tk.StringVar(), self.update_json_previews),
+            ("_font_face", tk.StringVar(), self.update_json_previews),
+            ("_font_size", tk.StringVar(), self.update_json_previews),
+            ("_config_preview_ctntvar", tk.StringVar(), None),
+            ("_list_preview_ctntvar", tk.StringVar(), None),
+            ("_sliderval_r", tk.IntVar(), self.update_colpreview),
+            ("_sliderval_g", tk.IntVar(), self.update_colpreview),
+            ("_sliderval_b", tk.IntVar(), self.update_colpreview),
+        ]
+        for _, (var_name, var_type, _) in enumerate(vars_to_define):
+            setattr(self, var_name, var_type)
 
         # Apply the Sun Valley theme, and title bar colour (Windows Only)
-        self.theme_helper = ThemeHelper(self, config.app_theme)
         self.theme_helper.apply_theme()
 
         self._define_interface()
         self.populate_interface()
+
+        # Define update callbacks for variables
+        for _, (var_name, _, write_callback) in enumerate(vars_to_define):
+            if write_callback is not None:
+                getattr(self, var_name).trace_add("write", callback=lambda *_, cb=write_callback: cb())
+
         self.mainloop()
 
-    def clear_focus(self, event):
-        # If the clicked widget is the root window, clear focus
-        focusable_widgets = (ttk.Entry, ttk.Button, ttk.Combobox, ttk.Spinbox, ttk.Scale)
+    def _set_window_properties(self):
+        self.logger.debug("Configuring window properties...")
 
-        # List of focusable tk widget types
+        # Configure Tk Window Properties
+        self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+        self.geometry('x'.join(str(x) for x in self.config.app_size))
+        self.title(self.config.app_title)
+        self.resizable(0, 0)
+        self.attributes('-topmost', True)
+        self.after_idle(self.attributes,'-topmost', False)
+        self.iconphoto(True, self.app_icon)
+        self.protocol('WM_DELETE_WINDOW', self._on_closing)
+        signal.signal(signal.SIGINT, self._on_closing)
+
+        # Define Application ID for Windows environments
+        if platform.system() == "Windows":
+            app_id = getattr(__info__, "APP_ID", "fallback")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+
+    def clear_focus(self, event):
+        ttk_focusable_widgets = (ttk.Entry, ttk.Button, ttk.Combobox, ttk.Spinbox, ttk.Scale)
         tk_focusable_classes = ['Entry', 'Button', 'Text', 'Scale', 'Spinbox']
 
         # Check if the clicked widget is focusable
         if (
-            isinstance(event.widget, focusable_widgets) or 
+            isinstance(event.widget, ttk_focusable_widgets) or 
             event.widget.winfo_class() in tk_focusable_classes
         ):
             return  # Let the widget keep focus
-        
         self.focus_set()
 
     def post_select_focus(self, event):
@@ -97,39 +110,50 @@ class ConfigurationUtility(tk.Tk):
             if file.endswith(supported_formats):
                 available_sounds.append(file)
         return sorted(available_sounds)
-    
-    def get_supported_languages(self) -> list:
-        available_locales = []
+
+    def get_supported_languages(self) -> dict:
+        available_locales = {}
         locale_dir = __info__.LOCALE_DIR
 
         # Walk through the locale directory to find .mo files
         for root, _, files in os.walk(locale_dir):
             if root.endswith('LC_MESSAGES'):
-                # Check for .mo files in the directory
                 if any(file.endswith('.mo') for file in files):
                     # Extract the locale from the parent directory of LC_MESSAGES
-                    locale = os.path.basename(os.path.dirname(root))
-                    if locale not in available_locales:
-                        available_locales.append(locale)
+                    locale_code = os.path.basename(os.path.dirname(root))
+                    
+                    if locale_code not in available_locales:
+                        try:
+                            # Resolve language name using langcodes
+                            display_name = __info__.LANGUAGE_MAP.get(locale_code)
+                        except Exception:
+                            # Fallback to the code itself if langcodes fails
+                            display_name = locale_code
+                        
+                        available_locales[display_name] = locale_code
 
-        # Return a sorted list of locales
-        return sorted(available_locales)
+        # Return a sorted dictionary
+        return dict(sorted(available_locales.items()))
+
+
 
     def populate_interface(self):
         self._enable_always_on_top.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_always_on_top"], False))
         self._enable_log_to_file.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_log_to_file"], False))
-        self._enable_sound.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_sound"], False))
+        self._enable_sound.set(False if len(self.get_available_sounds()) == 0 else get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_sound"], False))
 
         for item in self.list_data:
             self.list_lstbx.add_item(item)
+        
+        self.logger.info("Reading currently defined random colours...")
+        for color in get_nested(self.loaded_config, ["generator_config", "colours", "random_colours"], []):
+            if validate.is_hex_color(color):
+                self._random_colors_ctrl.add_item(color.lower())
+                self.logger.info(f"  -> Added {color.lower()}")
 
-        format_options = {
-            "indent": 4,
-            "separators": (',', ': '),
-            "ensure_ascii": False
-        }
-        self._config_preview_ctntvar.set(json.dumps(self.loaded_config, **format_options))
-        self._list_preview_ctntvar.set(custom_json_dump(self.list_data, **format_options))
+        self._font_face.set(get_nested(self.loaded_config, ["generator_config", "font", "face"], ""))
+        self._font_size.set(get_nested(self.loaded_config, ["generator_config", "font", "size"], ""))
+        self.update_json_previews()
 
 
     def _change_intvar_by_amount(self, var: tk.IntVar, amount) -> None:
@@ -139,10 +163,57 @@ class ConfigurationUtility(tk.Tk):
         if 0 <= new_val <= 255:
             var.set(new_val)
 
+    def update_json_previews(self) -> None:
+        self.logger.info("Updating configuration previews...")
+        try:
+            updates = {
+                # Feature flags
+                ("generator_config", "feature_flags", "enable_always_on_top"): self._enable_always_on_top.get(),
+                ("generator_config", "feature_flags", "enable_log_to_file"): self._enable_log_to_file.get(),
+                ("generator_config", "feature_flags", "enable_sound"): False if (len(self.get_available_sounds()) == 0) else self._enable_sound.get(),
+
+                # Generator settings
+                ("generator_config", "language"): self._language_ctrl.get_backend_value(),
+                ("generator_config", "theme"): self._theme_ctrl.get_backend_value(),
+                ("generator_config", "font", "face"): self._font_face.get(),
+                ("generator_config", "font", "size"): self._font_size.get(),
+                ("generator_config", "sound_file"): self._sound_file.get(),
+
+                # Editor settings
+                ("editor_config", "theme"): self._theme_ctrl.get_backend_value()
+            }
+
+            for keys, value in updates.items():
+                try:
+                    # Coerce booleans
+                    if keys[-1].startswith('enable_'):
+                        value = bool(value)
+                    # Coerce font size to int if applicable
+                    if keys == ("generator_config", "font", "size"):
+                        value = int(value)
+
+                    # Navigate the config dictionary and update value
+                    target = self.loaded_config
+                    for key in keys[:-1]:
+                        target = target.setdefault(key, {})
+                    target[keys[-1]] = value
+                    self.logger.debug(f"Updating value for '{' -> '.join(keys)}': {value}")
+
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(f"Skipping invalid value for '{' -> '.join(keys)}': {value} ({e})")
+
+            # Format and update previews
+            format_options = {"indent": 4, "separators": (',', ': '), "ensure_ascii": False}
+            self._config_preview_ctntvar.set(json.dumps(self.loaded_config, **format_options))
+            self._list_preview_ctntvar.set(custom_json_dump(self.list_data, **format_options))
+
+        except Exception as e:
+            self.logger.error(f"Failed to update configuration previews: {e}")
+
     def update_colpreview(self) -> None:
-        red_value = self._slidervals["r"].get()
-        green_value = self._slidervals["g"].get()
-        blue_value = self._slidervals["b"].get()
+        red_value = self._sliderval_r.get()
+        green_value = self._sliderval_g.get()
+        blue_value = self._sliderval_b.get()
 
         new_col = f"#{red_value:02x}{green_value:02x}{blue_value:02x}"
         self._hexentry.delete(0, tk.END)
@@ -150,14 +221,13 @@ class ConfigurationUtility(tk.Tk):
         self._colpreview.configure(background=new_col)
 
     def update_from_hex(self, color_input) -> None:
-        rgb_tuple = hex_to_rgb(color_input)
-        if rgb_tuple:
+        if (rgb_tuple := hex_to_rgb(color_input)):
             print("Update from hex")
             r, g, b = rgb_tuple
             self._slider_r.set(r)
             self._slider_g.set(g)
             self._slider_b.set(b)
-        
+
 
     def _define_interface(self):
         self._tab_control = ttk.Notebook(self, takefocus=0)
@@ -214,9 +284,7 @@ class ConfigurationUtility(tk.Tk):
             setattr(self, f"{listbox_name}_lstbx", ScrollableListbox(
                 self._editor_tab, header=header,
             ))
-            # getattr(self, f"{listbox_name}_lstbx").treeview.bind("<<TreeviewSelect>>", lambda e, lb=getattr(self, f"{listbox_name}_lstbx"): self._load_list(e, lb))
-            # listbox.treeview.bind("<<TreeviewSelect>>", lambda e, lb=listbox: self._load_list(e, lb))
-            getattr(self, f"{listbox_name}_lstbx").grid(row=0, column=(i * 3), columnspan=3, sticky="nesw", padx=5, pady=5)
+            getattr(self, f"{listbox_name}_lstbx").grid(row=1, column=(i * 3), columnspan=3, sticky="nesw", padx=5, pady=5)
             self._editor_tab.grid_columnconfigure(i * 3, weight=(i * 3))
 
             treeview_controls = [
@@ -228,9 +296,20 @@ class ConfigurationUtility(tk.Tk):
                 setattr(self, ctrl_name, ctrl_type(
                     self._editor_tab, text=text, **ctrl_options
                 ))
-                getattr(self, ctrl_name).grid(row=1, column=(j + (i * 3)), sticky="nesw", padx=5, pady=(0, 5))
+                getattr(self, ctrl_name).grid(row=2, column=(j + (i * 3)), sticky="nesw", padx=5, pady=(0, 5))
 
-        # self.list_lstbx.treeview.bind("<<TreeviewSelect>>", self._load_list)
+        self._editor_controls = ttk.Frame(self._editor_tab)
+        self._editor_controls.grid(row=0, column=0, padx=10, pady=10, columnspan=(len(treeviews) * len(treeview_controls)), sticky="nw")
+
+        # Define save controls
+        editor_controls = [
+            ("revert_list_changes_btn", "Revert changes", ttk.Button, {"state": "disabled"})
+        ]
+        for i, (ctrl_attr_name, text, ctrl_type, options) in enumerate(editor_controls):
+            setattr(self, f"_{ctrl_attr_name}", ctrl_type(self._editor_controls, text=text, **options))
+            getattr(self, f"_{ctrl_attr_name}").grid(row=0, column=i, padx=(0, 10), sticky="ew")
+
+
         self.after_idle(lambda: self.list_lstbx.treeview.bind("<<TreeviewSelect>>", self._load_list))
 
         self.list_add_btn.configure(command=lambda: self.list_lstbx.add_item(self.list_textbox.get()))
@@ -238,19 +317,35 @@ class ConfigurationUtility(tk.Tk):
         self.items_add_btn.configure(command=lambda: self.items_lstbx.add_item(self.items_textbox.get()))
         self.items_rem_btn.configure(command=self.items_lstbx.rem_item)
 
-        self._editor_tab.grid_rowconfigure(0, weight=1)
+        self._editor_tab.grid_rowconfigure(1, weight=1)
 
     def _load_list(self, _):
+        selected_items = self.list_lstbx.treeview.selection()
+        if not selected_items:
+            return
+        
+        # Get the current list name
+        new_values = self.list_lstbx.treeview.item(selected_items[0], 'text')
+        
+        # Check if the list is already loaded to avoid redundant refresh
+        if getattr(self, '_current_list', None) == new_values:
+            return
+        
+        # Update the current list reference
+        self._current_list = new_values
+
+        # Clear previous treeview items
+        self.logger.debug("Clearing item preview...")
         for items in self.items_lstbx.treeview.get_children():
             self.items_lstbx.treeview.delete(items)
 
-        for item in self.list_lstbx.treeview.selection():
-            # Get the text values of the selected row
-            values = self.list_lstbx.treeview.item(item, 'text')
-            print(f"Loading: {values}")  # Prints the tuple of row values
-            
-            for item in self.list_data.get(values):
-                self.items_lstbx.add_item(item)
+        # Load the new list
+        self.logger.info(f"Loading list: {new_values}")
+        item_count = 0
+        for item in self.list_data.get(new_values, []):
+            self.items_lstbx.add_item(item)
+            item_count += 1
+        self.logger.info(f"  -> Loaded {item_count} values")
 
 
 
@@ -301,6 +396,7 @@ class ConfigurationUtility(tk.Tk):
         fontfaces_available = font.families()
         supported_languages = self.get_supported_languages()
         sound_files_available = self.get_available_sounds()
+        supported_themes = {"Light": "light", "Dark": "dark", "Follow System": "auto"}
 
         # Define interface section containers
         containers = [
@@ -334,8 +430,11 @@ class ConfigurationUtility(tk.Tk):
         settings = [
             ("language", "Interface Language", OptionMenuWrapper, {
                 "variable": self._language,
-                "default_index": 0,
                 "values": supported_languages
+            }),
+            ("theme", "Application Theme", OptionMenuWrapper, {
+                "variable": self._theme,
+                "values": supported_themes
             }),
             ("ontop", "Always on top", ttk.Checkbutton, {
                 "variable": self._enable_always_on_top
@@ -344,12 +443,14 @@ class ConfigurationUtility(tk.Tk):
                 "variable": self._enable_log_to_file
             }),
             ("enable_sound", "Enable Sound", ttk.Checkbutton, {
-                "variable": self._enable_sound
+                "variable": self._enable_sound,
+                "state": 'disabled' if (len(sound_files_available) == 0) else 'normal'
             }),
             ("sound_file", "Sound File", OptionMenuWrapper, {
                 "variable": self._sound_file,
                 "default_index": 0,
-                "values": sound_files_available
+                "values": sound_files_available,
+                "state": 'disabled' if (len(sound_files_available) == 0) else 'normal'
             }),
             ("font_face", "Font Face", ttk.Combobox, {
                 "textvariable": self._font_face,
@@ -366,7 +467,7 @@ class ConfigurationUtility(tk.Tk):
             ("random_colors", "Random Colours", ScrollableListbox, {
                 "height": 6
             }),
-            ("ranodm_color_btns", "", tk.Frame, {})
+            ("random_color_btns", "", tk.Frame, {})
         ]
         for i, (setting_name, description, control_type, control_options) in enumerate(settings):
             setattr(self, f"_{setting_name}_lbl", ttk.Label(
@@ -380,13 +481,13 @@ class ConfigurationUtility(tk.Tk):
             self._preferences_container.grid_rowconfigure(i, minsize=35)
 
         # Define random colour treeview controls
-        self._add_col_btn = ttk.Button(self._ranodm_color_btns_ctrl, text="Add")
-        self._rem_col_btn = ttk.Button(self._ranodm_color_btns_ctrl, text="Remove")
+        self._add_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Add")
+        self._rem_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Remove")
         self._add_col_btn.grid(row=1, column=0, padx=(0, 2), sticky="ew")
         self._rem_col_btn.grid(row=1, column=1, padx=(2, 0), sticky="ew")
 
-        self._ranodm_color_btns_ctrl.grid_columnconfigure(0, weight=1, uniform="_ranodm_color_btns_ctrl")
-        self._ranodm_color_btns_ctrl.grid_columnconfigure(1, weight=1, uniform="_ranodm_color_btns_ctrl")
+        self._random_color_btns_ctrl.grid_columnconfigure(0, weight=1, uniform="_random_color_btns_ctrl")
+        self._random_color_btns_ctrl.grid_columnconfigure(1, weight=1, uniform="_random_color_btns_ctrl")
 
         # Define mixer controls and color preview frame
         self._colpreview = tk.Frame(self._color_select_container, background="black", width=40, highlightbackground="black", highlightthickness=1)
@@ -400,21 +501,21 @@ class ConfigurationUtility(tk.Tk):
             )
             getattr(self, f"_label_{color}").grid(row=i, column=0, sticky="ew", padx=10)
             setattr(self, f"_slider_{color}", Limiter(
-                self._colselect_frm, variable=self._slidervals[color], to=255, precision=0)
+                self._colselect_frm, variable=getattr(self, f"_sliderval_{color}"), to=255, precision=0)
             )
             getattr(self, f"_slider_{color}").grid(row=i, column=1, sticky="ew", padx=5)
             setattr(self, f"_minus_{color}", ttk.Button(
                 self._colselect_frm, text="-", takefocus=0,
-                command=lambda color=color: self._change_intvar_by_amount(self._slidervals[color], -1))
+                command=lambda color=color: self._change_intvar_by_amount(getattr(self, f"_sliderval_{color}"), -1))
             )
             getattr(self, f"_minus_{color}").grid(row=i, column=2, sticky="ew")
             setattr(self, f"_sliderval_lbl_{color}", ttk.Label(
-                self._colselect_frm, textvariable=self._slidervals[color], anchor="center")
+                self._colselect_frm, textvariable=getattr(self, f"_sliderval_{color}"), anchor="center")
             )
             getattr(self, f"_sliderval_lbl_{color}").grid(row=i, column=3, sticky="ew", padx=5)
             setattr(self, f"_plus_{color}", ttk.Button(
                 self._colselect_frm, text="+", takefocus=0,
-                command=lambda color=color: self._change_intvar_by_amount(self._slidervals[color], 1))
+                command=lambda color=color: self._change_intvar_by_amount(getattr(self, f"_sliderval_{color}"), 1))
             )
             getattr(self, f"_plus_{color}").grid(row=i, column=4, sticky="ew")
             self._colselect_frm.grid_rowconfigure(i, minsize=35)
@@ -422,6 +523,7 @@ class ConfigurationUtility(tk.Tk):
         self._hexentry_lbl = ttk.Label(self._colselect_frm, text="Hex")
         self._hexentry_lbl.grid(row=3, column=0, sticky="ew", padx=10)
         self._hexentry = ttk.Entry(self._colselect_frm)
+        self._hexentry.insert(0, "#000000")
         self._hexentry.grid(row=3, column=1, columnspan=4, sticky="ew", pady=5)
         self._hexentry.bind("<FocusOut>", lambda _: self.update_from_hex(self._hexentry.get()))
         
@@ -442,31 +544,35 @@ class ConfigurationUtility(tk.Tk):
         self._preference_tab.grid_rowconfigure(1, weight=1, uniform="row")
 
 
-    def _on_closing(self):
+    def _on_closing(self, *_):
+        self.logger.info("Termination signal received")
+        self.logger.debug("  -> Stopping theme listener...")
         self.theme_helper.stop_listener()
+        self.logger.info("  -> Exiting...")
         self.destroy()
     
     def update_font_preview(self):
         font_face = self._font_face.get()
         # Check if the font face is a string
-        if isinstance(font_face, str):
-            print(f"Font face: {font_face}")
-        else:
-            print("Invalid font face: Must be a string")
+        if not isinstance(font_face, str):
+            self.logger.warning("Cannot update font preview: Invalid font face, the font face must be a string")
             return
 
         # Attempt to convert font size to an integer
         try:
             font_size = int(self._font_size.get())
-            print(f"Font size: {font_size}")
         except ValueError:
-            print("Invalid font size: Must be a number")
+            self.logger.warning("Cannot update font preview: Invalid font size, the font face must be an integer")
             return
 
         # If both conditions are met, update the preview
+        self.logger.info(f"Updating font preview... ({font_face}, {font_size})")
         self._font_preview_lbl.configure(font=(font_face, font_size))
 
 
 if __name__ == "__main__":
-    APP_CONFIG = EditorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json")
-    instance = ConfigurationUtility(APP_CONFIG)
+    try:
+        APP_CONFIG = EditorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json", __info__.EDITOR_SCHEMA)
+        instance = ConfigurationUtility(APP_CONFIG)
+    except Exception as e:
+        print(e)

@@ -5,21 +5,90 @@ import re
 from _helpers import aiofiles
 
 
+
 class JSONHandler:
     def __init__(self, json_file=None, encoding="utf-8"):
         self.file_name = json_file
         self.encoding = encoding
-        self.json_data = asyncio.run(self._read_json())
+        self.json_data = self._run_sync(self._read_json())
 
     async def _read_json(self) -> dict[str, any]:
         try:
             async with aiofiles.open(self.file_name, "r", encoding=self.encoding) as json_file:
                 data = await json_file.read()
                 return json.loads(data)
-        except FileNotFoundError as e:
-            raise e
+        except FileNotFoundError:
+            return {}
         except json.JSONDecodeError as e:
             raise e
+
+    async def _write_json(self, data: dict[str, any]):
+        try:
+            async with aiofiles.open(self.file_name, "w", encoding=self.encoding) as json_file:
+                await json_file.write(json.dumps(data, indent=4))
+        except Exception as e:
+            raise e
+
+    def _run_sync(self, coro):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        else:
+            task = loop.create_task(coro)
+            return loop.run_until_complete(task)
+
+    def _resolve_keys(self, keys):
+        if isinstance(keys, str):
+            keys = keys.split('.')
+        if not isinstance(keys, list):
+            raise TypeError("Keys must be a string or a list.")
+        return keys
+
+    def get(self, keys, default=None):
+        keys = self._resolve_keys(keys)
+        data = self.json_data
+        try:
+            for key in keys:
+                if not isinstance(data, dict):
+                    return default
+                data = data.get(key, default)
+                if data is None:
+                    return default
+            return data
+        except (KeyError, TypeError):
+            return default
+
+    def set(self, keys, value):
+        """
+        Update the in-memory JSON data without writing to the file.
+        
+        Args:
+            keys (str | list): Dot-separated string or list of keys representing the path.
+            value (any): The value to set at the specified path.
+        """
+        keys = self._resolve_keys(keys)
+        data = self.json_data
+        try:
+            for key in keys[:-1]:
+                if key not in data or not isinstance(data[key], dict):
+                    data[key] = {}
+                data = data[key]
+            data[keys[-1]] = value
+        except (TypeError, KeyError) as e:
+            raise ValueError(f"Invalid key path: {'.'.join(keys)}") from e
+
+    def write(self):
+        """
+        Write the in-memory JSON data to the file.
+        """
+        self._run_sync(self._write_json(self.json_data))
+
+    def revert(self):
+        """
+        Revert the in-memory data to the original state from the file on disk.
+        """
+        self.json_data = self._run_sync(self._read_json())
 
 
 class ValidationError(Exception):
@@ -97,30 +166,7 @@ class JSONValidator:
             error_message = "\n".join(self.errors)
             raise ValidationError(f"Configuration Validation failed:\n{error_message}")
         return True
-
-
-def get_nested(dictionary, keys, default: any):
-    """
-    A wrapper for Python's `get` function that supports nested dictionaries.
     
-    Args:
-        dictionary (dict): The dictionary to search.
-        keys (list): A list of keys to traverse through the nested dictionary.
-        default: The default value to return if any key is not found.
-        
-    Returns:
-        The value associated with the keys, or the default value if any key is missing.
-    """
-    # Traverse through each key in the keys list
-    for key in keys:
-        # Check if the current dictionary is a valid dictionary
-        if isinstance(dictionary, dict):
-            # If the key is not found, return default value
-            dictionary = dictionary.get(key, default)
-        else:
-            # If the dictionary structure is not valid or key not found
-            return default
-    return dictionary
 
 def custom_json_dump(data, **kwargs):
     indent = kwargs.get('indent', None)

@@ -3,6 +3,7 @@ import json
 import os
 import platform
 import signal
+import traceback
 import tkinter as tk
 from tkinter import ttk, font
 import webbrowser
@@ -10,7 +11,7 @@ import webbrowser
 from _helpers.apply_theme import ThemeHelper
 from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from _helpers.configuration import EditorAppSettings
-from _helpers.data import JSONHandler, custom_json_dump, get_nested, hex_to_rgb
+from _helpers.data import JSONHandler, custom_json_dump, hex_to_rgb
 from _helpers.logger import init_logger
 from _helpers import validate
 import __info__
@@ -24,7 +25,7 @@ class ConfigurationUtility(tk.Tk):
         self.logger = init_logger("editor", "DEBUG", True)
         self.logger.info("Launching Editor...")
 
-        self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json").json_data
+        self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json")
         self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json").json_data
         self.theme_helper = ThemeHelper(self, config.app_theme)
 
@@ -35,21 +36,27 @@ class ConfigurationUtility(tk.Tk):
         self.bind("<<ComboboxSelected>>", self.post_select_focus)
         self.bind("<Button-1>", self.clear_focus)
 
+        self.fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
+        self.fontfaces_available = font.families()
+        self.supported_languages = self.get_supported_languages()
+        self.sound_files_available = self.get_available_sounds()
+        self.supported_themes = {"Light": "light", "Dark": "dark", "Follow System": "auto"}
+
         # Interface Variables
         vars_to_define = [
-            ("_language", tk.StringVar(), self.update_json_previews),
-            ("_theme", tk.StringVar(), self.update_json_previews),
-            ("_enable_always_on_top", tk.BooleanVar(), self.update_json_previews),
-            ("_enable_log_to_file", tk.BooleanVar(), self.update_json_previews),
-            ("_enable_sound", tk.BooleanVar(), self.update_json_previews),
-            ("_sound_file", tk.StringVar(), self.update_json_previews),
-            ("_font_face", tk.StringVar(), self.update_json_previews),
-            ("_font_size", tk.StringVar(), self.update_json_previews),
-            ("_config_preview_ctntvar", tk.StringVar(), None),
-            ("_list_preview_ctntvar", tk.StringVar(), None),
-            ("_sliderval_r", tk.IntVar(), self.update_colpreview),
-            ("_sliderval_g", tk.IntVar(), self.update_colpreview),
-            ("_sliderval_b", tk.IntVar(), self.update_colpreview),
+            ("_language", tk.StringVar(), [self.update_json_previews]),
+            ("_theme", tk.StringVar(), [self.update_json_previews]),
+            ("_enable_always_on_top", tk.BooleanVar(), [self.update_json_previews]),
+            ("_enable_log_to_file", tk.BooleanVar(), [self.update_json_previews]),
+            ("_enable_sound", tk.BooleanVar(), [self.update_json_previews]),
+            ("_sound_file", tk.StringVar(), [self.update_json_previews]),
+            ("_font_face", tk.StringVar(), [self.update_json_previews, self.update_font_preview]),
+            ("_font_size", tk.StringVar(), [self.update_json_previews, self.update_font_preview]),
+            ("_config_preview_ctntvar", tk.StringVar(), [None]),
+            ("_list_preview_ctntvar", tk.StringVar(), [None]),
+            ("_sliderval_r", tk.IntVar(), [self.update_colpreview]),
+            ("_sliderval_g", tk.IntVar(), [self.update_colpreview]),
+            ("_sliderval_b", tk.IntVar(), [self.update_colpreview]),
         ]
         for _, (var_name, var_type, _) in enumerate(vars_to_define):
             setattr(self, var_name, var_type)
@@ -61,16 +68,20 @@ class ConfigurationUtility(tk.Tk):
         self.populate_interface()
 
         # Define update callbacks for variables
-        for _, (var_name, _, write_callback) in enumerate(vars_to_define):
-            if write_callback is not None:
-                getattr(self, var_name).trace_add("write", callback=lambda *_, cb=write_callback: cb())
+        for _, (var_name, _, write_callbacks) in enumerate(vars_to_define):
+            for callback in write_callbacks:
+                if callback is not None:
+                    getattr(self, var_name).trace_add("write", callback=lambda *_, cb=callback: cb())
 
         self.mainloop()
+
 
     def _set_window_properties(self):
         self.logger.debug("Configuring window properties...")
 
         # Configure Tk Window Properties
+        self.lift()
+        self.focus_force()
         self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
         self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.title(self.config.app_title)
@@ -86,6 +97,7 @@ class ConfigurationUtility(tk.Tk):
             app_id = getattr(__info__, "APP_ID", "fallback")
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
 
+
     def clear_focus(self, event):
         ttk_focusable_widgets = (ttk.Entry, ttk.Button, ttk.Combobox, ttk.Spinbox, ttk.Scale)
         tk_focusable_classes = ['Entry', 'Button', 'Text', 'Scale', 'Spinbox']
@@ -98,9 +110,6 @@ class ConfigurationUtility(tk.Tk):
             return  # Let the widget keep focus
         self.focus_set()
 
-    def post_select_focus(self, event):
-        event.widget.selection_clear()
-        self.focus_set()
 
     def get_available_sounds(self) -> list:
         sound_dir = f"{__info__.CONFIG_DIR}/sounds"
@@ -110,6 +119,7 @@ class ConfigurationUtility(tk.Tk):
             if file.endswith(supported_formats):
                 available_sounds.append(file)
         return sorted(available_sounds)
+
 
     def get_supported_languages(self) -> dict:
         available_locales = {}
@@ -136,23 +146,37 @@ class ConfigurationUtility(tk.Tk):
         return dict(sorted(available_locales.items()))
 
 
+    def post_select_focus(self, event):
+        event.widget.selection_clear()
+        self.focus_set()
+
 
     def populate_interface(self):
-        self._enable_always_on_top.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_always_on_top"], False))
-        self._enable_log_to_file.set(get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_log_to_file"], False))
-        self._enable_sound.set(False if len(self.get_available_sounds()) == 0 else get_nested(self.loaded_config, ["generator_config", "feature_flags", "enable_sound"], False))
+        self.logger.info("Loading configuration values from configuration file...")
+        self._enable_always_on_top.set(self.loaded_config.get(["generator_config", "feature_flags", "enable_always_on_top"], False))
+        self._enable_log_to_file.set(self.loaded_config.get(["generator_config", "feature_flags", "enable_log_to_file"], False))
+        self._enable_sound.set(False if len(self.get_available_sounds()) == 0 else self.loaded_config.get(["generator_config", "feature_flags", "enable_sound"], False))
+        self._theme_ctrl.set_backend_value(self.loaded_config.get(["generator_config", "theme"], "light"))
+        
+        saved_soundfile = self.loaded_config.get(["generator_config", "sound_file"])
+        available_sounds = self.get_available_sounds()
+        if saved_soundfile in available_sounds:
+            self._sound_file.set(saved_soundfile)
+        elif len(available_sounds) > 0:
+            self._sound_file.set(available_sounds[0])
 
         for item in self.list_data:
             self.list_lstbx.add_item(item)
         
-        self.logger.info("Reading currently defined random colours...")
-        for color in get_nested(self.loaded_config, ["generator_config", "colours", "random_colours"], []):
+        self.logger.debug("Reading currently defined random colours...")
+        for color in self.loaded_config.get(["generator_config", "colours", "random_colours"], []):
             if validate.is_hex_color(color):
                 self._random_colors_ctrl.add_item(color.lower())
-                self.logger.info(f"  -> Added {color.lower()}")
+                self.logger.debug(f"  -> Added {color.lower()}")
 
-        self._font_face.set(get_nested(self.loaded_config, ["generator_config", "font", "face"], ""))
-        self._font_size.set(get_nested(self.loaded_config, ["generator_config", "font", "size"], ""))
+        self._font_face.set(self.loaded_config.get(["generator_config", "font", "face"], ""))
+        self._font_size.set(self.loaded_config.get(["generator_config", "font", "size"], ""))
+        self.update_font_preview()
         self.update_json_previews()
 
 
@@ -188,27 +212,29 @@ class ConfigurationUtility(tk.Tk):
                     # Coerce booleans
                     if keys[-1].startswith('enable_'):
                         value = bool(value)
+
                     # Coerce font size to int if applicable
                     if keys == ("generator_config", "font", "size"):
                         value = int(value)
 
-                    # Navigate the config dictionary and update value
-                    target = self.loaded_config
-                    for key in keys[:-1]:
-                        target = target.setdefault(key, {})
-                    target[keys[-1]] = value
+                    # Update using the new `set` method in JSONHandler
+                    self.loaded_config.set(list(keys), value)
                     self.logger.debug(f"Updating value for '{' -> '.join(keys)}': {value}")
 
                 except (ValueError, TypeError) as e:
-                    self.logger.warning(f"Skipping invalid value for '{' -> '.join(keys)}': {value} ({e})")
+                    self.logger.warning(
+                        f"Skipping invalid value for '{' -> '.join(keys)}': {value} ({e})"
+                    )
 
             # Format and update previews
             format_options = {"indent": 4, "separators": (',', ': '), "ensure_ascii": False}
-            self._config_preview_ctntvar.set(json.dumps(self.loaded_config, **format_options))
+            self._config_preview_ctntvar.set(json.dumps(self.loaded_config.json_data, **format_options))
             self._list_preview_ctntvar.set(custom_json_dump(self.list_data, **format_options))
 
         except Exception as e:
             self.logger.error(f"Failed to update configuration previews: {e}")
+            print(traceback.format_exc())
+
 
     def update_colpreview(self) -> None:
         red_value = self._sliderval_r.get()
@@ -219,6 +245,7 @@ class ConfigurationUtility(tk.Tk):
         self._hexentry.delete(0, tk.END)
         self._hexentry.insert(0, new_col)
         self._colpreview.configure(background=new_col)
+
 
     def update_from_hex(self, color_input) -> None:
         if (rgb_tuple := hex_to_rgb(color_input)):
@@ -319,6 +346,7 @@ class ConfigurationUtility(tk.Tk):
 
         self._editor_tab.grid_rowconfigure(1, weight=1)
 
+
     def _load_list(self, _):
         selected_items = self.list_lstbx.treeview.selection()
         if not selected_items:
@@ -348,16 +376,14 @@ class ConfigurationUtility(tk.Tk):
         self.logger.info(f"  -> Loaded {item_count} values")
 
 
-
-
     def _save_tab_ui(self):
         self._save_controls = ttk.Frame(self._save_tab)
-        self._save_controls.grid(row=0, column=0, padx=10, pady=10, columnspan=2, sticky="nw")
+        self._save_controls.grid(row=0, column=0, padx=10, pady=(10, 2), columnspan=2, sticky="nw")
 
         # Define save controls
         save_controls = [
-            ("save_btn", "Save configuration...", ttk.Button, {"style": "Accent.TButton", "state": "disabled"}),
-            ("status_lbl", "Check your configuration options before saving!", ttk.Label, {})
+            ("save_btn", "Save configuration...", ttk.Button, {"style": "Accent.TButton", "command": lambda *_: self.save_configuration()}),
+            ("save_status_lbl", "Check your configuration options before saving!", ttk.Label, {})
         ]
         for i, (ctrl_attr_name, text, ctrl_type, options) in enumerate(save_controls):
             setattr(self, f"_{ctrl_attr_name}", ctrl_type(self._save_controls, text=text, **options))
@@ -391,13 +417,8 @@ class ConfigurationUtility(tk.Tk):
 
         self._save_tab.grid_rowconfigure(1, weight=1)
 
-    def _preference_tab_ui(self):
-        fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
-        fontfaces_available = font.families()
-        supported_languages = self.get_supported_languages()
-        sound_files_available = self.get_available_sounds()
-        supported_themes = {"Light": "light", "Dark": "dark", "Follow System": "auto"}
 
+    def _preference_tab_ui(self):
         # Define interface section containers
         containers = [
             ("preferences", "Preferences", 2, {
@@ -430,46 +451,45 @@ class ConfigurationUtility(tk.Tk):
         settings = [
             ("language", "Interface Language", OptionMenuWrapper, {
                 "variable": self._language,
-                "values": supported_languages
-            }),
+                "values": self.supported_languages
+            }, "ew"),
             ("theme", "Application Theme", OptionMenuWrapper, {
                 "variable": self._theme,
-                "values": supported_themes
-            }),
+                "values": self.supported_themes
+            }, "ew"),
             ("ontop", "Always on top", ttk.Checkbutton, {
                 "variable": self._enable_always_on_top
-            }),
+            }, "w"),
             ("log_to_file", "Log to file", ttk.Checkbutton, {
                 "variable": self._enable_log_to_file
-            }),
+            }, "w"),
             ("enable_sound", "Enable Sound", ttk.Checkbutton, {
                 "variable": self._enable_sound,
-                "state": 'disabled' if (len(sound_files_available) == 0) else 'normal'
-            }),
+                "state": 'disabled' if (len(self.sound_files_available) == 0) else 'normal'
+            }, "w"),
             ("sound_file", "Sound File", OptionMenuWrapper, {
                 "variable": self._sound_file,
-                "default_index": 0,
-                "values": sound_files_available,
-                "state": 'disabled' if (len(sound_files_available) == 0) else 'normal'
-            }),
+                "values": self.sound_files_available,
+                "state": 'disabled' if (len(self.sound_files_available) == 0) else 'normal'
+            }, "ew"),
             ("font_face", "Font Face", ttk.Combobox, {
                 "textvariable": self._font_face,
-                "values": fontfaces_available,
+                "values": self.fontfaces_available,
                 "validate": "focusout",
-                "validatecommand": lambda: validate.is_in_list(fontfaces_available, self._font_face.get())
-            }),
+                "validatecommand": lambda: validate.is_in_list(self.fontfaces_available, self._font_face.get())
+            }, "ew"),
             ("font_size", "Font Size", ttk.Combobox, {
                 "textvariable": self._font_size,
-                "values": fontsize_defaults,
+                "values": self.fontsize_defaults,
                 "validate": "focus",
                 "validatecommand": lambda: validate.is_integer(self._font_size.get())
-            }),
+            }, "ew"),
             ("random_colors", "Random Colours", ScrollableListbox, {
                 "height": 6
-            }),
-            ("random_color_btns", "", tk.Frame, {})
+            }, "ew"),
+            ("random_color_btns", "", tk.Frame, {}, "ew")
         ]
-        for i, (setting_name, description, control_type, control_options) in enumerate(settings):
+        for i, (setting_name, description, control_type, control_options, sticky_option) in enumerate(settings):
             setattr(self, f"_{setting_name}_lbl", ttk.Label(
                 self._preferences_container, text=description, anchor="e"
             ))
@@ -477,7 +497,7 @@ class ConfigurationUtility(tk.Tk):
                 self._preferences_container, **control_options
             ))
             getattr(self, f"_{setting_name}_lbl").grid(row=i, column=0, sticky="ew", padx=(5,0))
-            getattr(self, f"_{setting_name}_ctrl").grid(row=i, column=1, sticky="ew", padx=10, pady=2)
+            getattr(self, f"_{setting_name}_ctrl").grid(row=i, column=1, sticky=sticky_option, padx=10, pady=2)
             self._preferences_container.grid_rowconfigure(i, minsize=35)
 
         # Define random colour treeview controls
@@ -534,8 +554,6 @@ class ConfigurationUtility(tk.Tk):
         # Define font preview
         self._font_preview_lbl = ttk.Label(self._font_preview_container, text="Sample", anchor="nw")
         self._font_preview_lbl.pack(fill="both", expand=True, padx=10, pady=10)
-        self._font_face.trace_add('write', lambda *args: self.update_font_preview())
-        self._font_size.trace_add('write', lambda *args: self.update_font_preview())
 
         # Tab Grid Settings
         self._preference_tab.grid_columnconfigure(0, weight=1, uniform="column")
@@ -550,7 +568,8 @@ class ConfigurationUtility(tk.Tk):
         self.theme_helper.stop_listener()
         self.logger.info("  -> Exiting...")
         self.destroy()
-    
+
+
     def update_font_preview(self):
         font_face = self._font_face.get()
         # Check if the font face is a string
@@ -570,9 +589,21 @@ class ConfigurationUtility(tk.Tk):
         self._font_preview_lbl.configure(font=(font_face, font_size))
 
 
+    def save_configuration(self):
+        previous_text = self._save_status_lbl.cget("text")
+        self._save_btn.configure(state="disabled")
+
+        self.logger.info("Saving configuration...")
+        self._save_status_lbl.configure(text="Saving...")
+        self.loaded_config.write()
+        self._save_status_lbl.configure(text="Configuration saved!")
+        self.after(1000, lambda: self._save_status_lbl.configure(text=previous_text))
+        self._save_btn.configure(state="normal")
+
+
 if __name__ == "__main__":
     try:
         APP_CONFIG = EditorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json", __info__.EDITOR_SCHEMA)
         instance = ConfigurationUtility(APP_CONFIG)
     except Exception as e:
-        print(e)
+        print(traceback.format_exc())

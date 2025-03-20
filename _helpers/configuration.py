@@ -14,6 +14,8 @@ class GeneratorAppSettings:
             "random_cols": (["colours", "random_colours"], False),
             "app_light_text_col": (["colours", "light_text"], "#FAFAFA"),
             "app_dark_text_col": (["colours", "dark_text"], "#1C1C1C"),
+            "enable_sound": (["feature_flags", "enable_sound"], True),
+            "enable_always_on_top": (["feature_flags", "enable_always_on_top"], True),
             "enable_log_to_file": (["feature_flags", "enable_log_to_file"], True),
             "sound_fname": (["sound_file"], ""),
             "language": (["language"], ""),

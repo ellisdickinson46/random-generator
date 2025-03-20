@@ -1,19 +1,8 @@
 {
     "generator_config": {
-        "theme": "auto",
-        "language": "en",
-        "window_size": [
-            650,
-            140
-        ],
-        "sound_file": "ding.wav",
-        "font": {
-            "face": "Arial Black",
-            "size": 42
-        },
         "colours": {
-            "light_text": "#FAFAFA",
             "dark_text": "#1C1C1C",
+            "light_text": "#FAFAFA",
             "random_colours": [
                 "#36E892",
                 "#FF9F60",
@@ -29,7 +18,18 @@
             "enable_always_on_top": true,
             "enable_log_to_file": true,
             "enable_sound": true
-        }
+        },
+        "font": {
+            "face": "Arial Black",
+            "size": 42
+        },
+        "language": "en",
+        "sound_file": "ding.wav",
+        "theme": "auto",
+        "window_size": [
+            650,
+            140
+        ]
     },
     "editor_config": {
         "theme": "auto",

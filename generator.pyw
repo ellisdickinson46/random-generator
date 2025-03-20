@@ -42,7 +42,7 @@ class RandomGenerator(tk.Tk):
 
         # Define Window Properties
         self.title(self._("_window_title"))
-        self.attributes('-topmost', self.config.app_on_top)
+        self.attributes('-topmost', self.config.enable_always_on_top)
         self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.protocol('WM_DELETE_WINDOW', self._on_closing)
         signal.signal(signal.SIGINT, self._on_closing)

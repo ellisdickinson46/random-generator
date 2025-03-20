@@ -9,7 +9,7 @@ from tkinter import ttk, font
 import webbrowser
 
 from _helpers.apply_theme import ThemeHelper
-from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox, ListVar
+from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox, ListVar, DictVar
 from _helpers.configuration import EditorAppSettings
 from _helpers.data import JSONHandler, custom_json_dump, hex_to_rgb, rgb_to_hex
 from _helpers.logger import init_logger
@@ -28,7 +28,7 @@ class ConfigurationUtility(tk.Tk):
         style_customisations = [('Treeview', {"rowheight": 25})]
         self.theme_helper = ThemeHelper(self, config.app_theme, customisations=style_customisations)
         self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json")
-        self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json").json_data
+        self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json")
 
         self._set_window_properties()
 
@@ -58,13 +58,16 @@ class ConfigurationUtility(tk.Tk):
             ("_sliderval_r", tk.IntVar(), [self.update_colpreview]),
             ("_sliderval_g", tk.IntVar(), [self.update_colpreview]),
             ("_sliderval_b", tk.IntVar(), [self.update_colpreview]),
-            ("_random_cols", ListVar(), [self.update_json_previews])
+            ("_random_cols", ListVar(), [self.update_json_previews]),
+            ("_list_data", DictVar(), [self.update_json_previews])
         ]
         for _, (var_name, var_type, _) in enumerate(vars_to_define):
             setattr(self, var_name, var_type)
 
         # Apply the Sun Valley theme, and title bar colour (Windows Only)
         self.theme_helper.apply_theme()
+
+        # self._list_data.trace_add("write", lambda *_: print(self._list_data.get()))
 
         self._define_interface()
         self.populate_interface()
@@ -158,6 +161,7 @@ class ConfigurationUtility(tk.Tk):
         self._enable_log_to_file.set(self.loaded_config.get(["generator_config", "feature_flags", "enable_log_to_file"], False))
         self._enable_sound.set(False if len(self.get_available_sounds()) == 0 else self.loaded_config.get(["generator_config", "feature_flags", "enable_sound"], False))
         self._theme_ctrl.set_backend_value(self.loaded_config.get(["generator_config", "theme"], "light"))
+        self._list_data.set(self.list_data.json_data)
         
         saved_soundfile = self.loaded_config.get(["generator_config", "sound_file"])
         available_sounds = self.get_available_sounds()
@@ -166,8 +170,8 @@ class ConfigurationUtility(tk.Tk):
         elif len(available_sounds) > 0:
             self._sound_file.set(available_sounds[0])
 
-        for item in self.list_data:
-            self.list_lstbx.add_item(item)
+        for key in self._list_data.keys():
+            self.list_lstbx.add_item(key)
         
         self.logger.debug("Reading currently defined random colours...")
         for color in self.loaded_config.get(["generator_config", "colours", "random_colours"], []):
@@ -190,9 +194,9 @@ class ConfigurationUtility(tk.Tk):
             var.set(new_val)
 
     def update_json_previews(self) -> None:
-        self.logger.info("Updating configuration previews...")
+        self.logger.info("Syncing configuration values...")
         try:
-            updates = {
+            configuration_updates = {
                 # Feature flags
                 ("generator_config", "feature_flags", "enable_always_on_top"): self._enable_always_on_top.get(),
                 ("generator_config", "feature_flags", "enable_log_to_file"): self._enable_log_to_file.get(),
@@ -207,32 +211,33 @@ class ConfigurationUtility(tk.Tk):
                 ("generator_config", "colours", "random_colours"): self._random_cols.get(),
 
                 # Editor settings
-                ("editor_config", "theme"): self._theme_ctrl.get_backend_value()
+                ("editor_config", "theme"): self._theme_ctrl.get_backend_value(),
             }
-
-            for keys, value in updates.items():
+            for keys, value in configuration_updates.items():
                 try:
                     # Coerce booleans
                     if keys[-1].startswith('enable_'):
                         value = bool(value)
-
                     # Coerce font size to int if applicable
                     if keys == ("generator_config", "font", "size"):
                         value = int(value)
-
                     # Update using the new `set` method in JSONHandler
+                    self.logger.debug(f"Updating configuration value for '{' -> '.join(keys)}': {value}")
                     self.loaded_config.set(list(keys), value)
-                    self.logger.debug(f"Updating value for '{' -> '.join(keys)}': {value}")
-
                 except (ValueError, TypeError) as e:
                     self.logger.warning(
                         f"Skipping invalid value for '{' -> '.join(keys)}': {value} ({e})"
                     )
 
+            self.logger.info("Syncing list data...")
+            self.list_data.overwrite(self._list_data.get())
+
+            self.logger.info("Updating configuration previews...")
+
             # Format and update previews
             format_options = {"indent": 4, "separators": (',', ': '), "ensure_ascii": False}
             self._config_preview_ctntvar.set(json.dumps(self.loaded_config.json_data, **format_options))
-            self._list_preview_ctntvar.set(custom_json_dump(self.list_data, **format_options))
+            self._list_preview_ctntvar.set(custom_json_dump(self.list_data.json_data, **format_options))
 
         except Exception as e:
             self.logger.error(f"Failed to update configuration previews: {e}")
@@ -252,7 +257,6 @@ class ConfigurationUtility(tk.Tk):
 
     def update_from_hex(self, color_input) -> None:
         if (rgb_tuple := hex_to_rgb(color_input)):
-            print("Update from hex")
             r, g, b = rgb_tuple
             self._slider_r.set(r)
             self._slider_g.set(g)
@@ -342,28 +346,60 @@ class ConfigurationUtility(tk.Tk):
 
         self.after_idle(lambda: self.list_lstbx.treeview.bind("<<TreeviewSelect>>", self._load_list))
 
-        self.list_add_btn.configure(command=lambda: self.list_lstbx.add_item(self.list_textbox.get()))
-        self.list_rem_btn.configure(command=self.list_lstbx.rem_item)
-        self.items_add_btn.configure(command=lambda: self.items_lstbx.add_item(self.items_textbox.get()))
-        self.items_rem_btn.configure(command=self.items_lstbx.rem_item)
+        self.list_add_btn.configure(command=self.create_new_list)
+        self.list_rem_btn.configure(command=self.remove_list)
+        self.items_add_btn.configure(command=self.add_list_item)
+        self.items_rem_btn.configure(command=self.rem_list_item)
 
         self._editor_tab.grid_rowconfigure(1, weight=1)
 
+    def create_new_list(self, *_):
+        new_list = self.list_textbox.get()
+        if new_list != "" and new_list not in self._list_data.keys():
+            self.list_lstbx.add_item(new_list)
+            self._list_data.update(new_list, [])
+        
+    def remove_list(self, *_):
+        selection = self.list_lstbx.treeview.selection()
+        for item in selection:
+            list_name = self.list_lstbx.treeview.item(item, 'text')
+            self._list_data.remove(list_name)
+        self.list_lstbx.rem_item()
+
+    def add_list_item(self, *_):
+        new_item = self.items_textbox.get()
+        list_data = []
+        for item in self.items_lstbx.treeview.get_children():
+            list_data.append(self.items_lstbx.treeview.item(item, 'text'))
+
+        if new_item != "" and new_item not in list_data:
+            list_data.append(new_item)
+            self.items_lstbx.add_item(new_item)
+            self._list_data.update(self._current_list, list_data)
+
+    def rem_list_item(self, *_):
+        self.items_lstbx.rem_item()
+        list_data = []
+
+        for item in self.items_lstbx.treeview.get_children():
+            list_data.append(self.items_lstbx.treeview.item(item, 'text'))
+        self._list_data.update(self._current_list, list_data)
+
 
     def _load_list(self, _):
-        selected_items = self.list_lstbx.treeview.selection()
-        if not selected_items:
+        selected_list = self.list_lstbx.treeview.selection()
+        if not selected_list:
             return
-        
-        # Get the current list name
-        new_values = self.list_lstbx.treeview.item(selected_items[0], 'text')
+
+        # Get the selected list name
+        new_list = self.list_lstbx.treeview.item(selected_list[0], 'text')
         
         # Check if the list is already loaded to avoid redundant refresh
-        if getattr(self, '_current_list', None) == new_values:
+        if getattr(self, '_current_list', None) == new_list:
             return
-        
+
         # Update the current list reference
-        self._current_list = new_values
+        self._current_list = new_list
 
         # Clear previous treeview items
         self.logger.debug("Clearing item preview...")
@@ -371,9 +407,9 @@ class ConfigurationUtility(tk.Tk):
             self.items_lstbx.treeview.delete(items)
 
         # Load the new list
-        self.logger.info(f"Loading list: {new_values}")
+        self.logger.info(f"Loading list: {self._current_list}")
         item_count = 0
-        for item in self.list_data.get(new_values, []):
+        for item in self._list_data.find(self._current_list):
             self.items_lstbx.add_item(item)
             item_count += 1
         self.logger.info(f"  -> Loaded {item_count} values")
@@ -618,12 +654,15 @@ class ConfigurationUtility(tk.Tk):
 
 
     def save_configuration(self):
+        self.logger.info("Saving configuration...")
+
         previous_text = self._save_status_lbl.cget("text")
         self._save_btn.configure(state="disabled")
-
-        self.logger.info("Saving configuration...")
         self._save_status_lbl.configure(text="Saving...")
+
         self.loaded_config.write()
+        self.list_data.write()
+        
         self._save_status_lbl.configure(text="Configuration saved!")
         self.after(1000, lambda: self._save_status_lbl.configure(text=previous_text))
         self._save_btn.configure(state="normal")

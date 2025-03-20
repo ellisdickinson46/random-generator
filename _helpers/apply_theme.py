@@ -80,4 +80,5 @@ class ThemeHelper:
                 self.root.wm_attributes("-alpha", 1)
 
     def stop_listener(self):
-        self.listener.stop(0)
+        if hasattr(self, "listener"):
+            self.listener.stop(0)

@@ -15,12 +15,15 @@ class ThemeHelper:
         self.theme = theme.lower()
         self.customisations = customisations
         
+        current_theme = darkdetect.theme()
+        if self.theme == "auto":
+            self.theme = current_theme
+
         self.root.lift()
 
     def apply_theme(self):
-        current_theme = darkdetect.theme()
         if isinstance(self.root, tk.Tk):
-            sv_ttk.set_theme(current_theme, self.root)
+            sv_ttk.set_theme(self.theme, self.root)
         if self.theme == "auto":
             self.listener = darkdetect.Listener(self._change_theme)
             self._listener_thread = threading.Thread(

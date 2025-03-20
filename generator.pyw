@@ -98,7 +98,7 @@ class RandomGenerator(tk.Tk):
 
     def _change_list(self):
         self.logger.info("Change list requested...")
-        available_lists = self._list_data.keys()
+        available_lists = self._list_data.json_data.keys()
 
         self.attributes('-topmost', False)
         dialog = TTKDialog(

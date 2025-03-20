@@ -365,6 +365,7 @@ class ConfigurationUtility(tk.Tk):
             list_name = self.list_lstbx.treeview.item(item, 'text')
             self._list_data.remove(list_name)
         self.list_lstbx.rem_item()
+        self.list_lstbx.treeview.selection_add(self.list_lstbx.treeview.get_children()[0])
 
     def add_list_item(self, *_):
         new_item = self.items_textbox.get()

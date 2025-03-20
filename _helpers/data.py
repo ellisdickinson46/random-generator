@@ -61,7 +61,7 @@ class JSONHandler:
 
     def set(self, keys, value):
         """
-        Update the in-memory JSON data without writing to the file.
+        Update the in-memory JSON data of a specific key without writing to the file.
         
         Args:
             keys (str | list): Dot-separated string or list of keys representing the path.
@@ -89,6 +89,21 @@ class JSONHandler:
         Revert the in-memory data to the original state from the file on disk.
         """
         self.json_data = self._run_sync(self._read_json())
+    
+    def overwrite(self, new_data: dict):
+        """
+        Overwrite the entire JSON data with the new data.
+        
+        Args:
+            new_data (dict): The new data to replace the existing JSON data.
+        
+        Raises:
+            TypeError: If new_data is not a dictionary.
+        """
+        if not isinstance(new_data, dict):
+            raise TypeError("New data must be a dictionary.")
+        
+        self.json_data = new_data
 
 
 class ValidationError(Exception):

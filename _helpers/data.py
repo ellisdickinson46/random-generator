@@ -214,3 +214,9 @@ def hex_to_rgb(hex_color):
         return (r, g, b)
     except ValueError:
         return None
+
+def rgb_to_hex(r, g, b):
+    if not all(0 <= x <= 255 for x in (r, g, b)):
+        raise ValueError("RGB values must be between 0 and 255")
+    
+    return f'#{r:02x}{g:02x}{b:02x}'

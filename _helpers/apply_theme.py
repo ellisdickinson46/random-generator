@@ -15,7 +15,7 @@ class ThemeHelper:
         self.theme = theme.lower()
         self.customisations = customisations
         
-        current_theme = darkdetect.theme()
+        current_theme = darkdetect.theme().lower()
         if self.theme == "auto":
             self.theme = current_theme
 
@@ -47,7 +47,6 @@ class ThemeHelper:
         self.root.update_idletasks()
 
     def apply_title_bar_theme(self, override_color=None):
-        current_theme = darkdetect.theme().lower()
         if platform.system() == "Windows":
             from _helpers import pywinstyles
 
@@ -64,7 +63,7 @@ class ThemeHelper:
                 if override_color is not None:
                     new_col = override_color
                 else:
-                    new_col = titlebar_colours.get(current_theme, "red")
+                    new_col = titlebar_colours.get(self.theme, "red")
 
                 hwnd = ctypes.windll.user32.FindWindowW(None, self.root.title())
                 pywinstyles.change_header_color(hwnd, color=new_col)

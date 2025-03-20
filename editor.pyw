@@ -9,9 +9,9 @@ from tkinter import ttk, font
 import webbrowser
 
 from _helpers.apply_theme import ThemeHelper
-from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
+from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox, ListVar
 from _helpers.configuration import EditorAppSettings
-from _helpers.data import JSONHandler, custom_json_dump, hex_to_rgb
+from _helpers.data import JSONHandler, custom_json_dump, hex_to_rgb, rgb_to_hex
 from _helpers.logger import init_logger
 from _helpers import validate
 import __info__
@@ -57,6 +57,7 @@ class ConfigurationUtility(tk.Tk):
             ("_sliderval_r", tk.IntVar(), [self.update_colpreview]),
             ("_sliderval_g", tk.IntVar(), [self.update_colpreview]),
             ("_sliderval_b", tk.IntVar(), [self.update_colpreview]),
+            ("_random_cols", ListVar(), [self.update_json_previews])
         ]
         for _, (var_name, var_type, _) in enumerate(vars_to_define):
             setattr(self, var_name, var_type)
@@ -74,7 +75,6 @@ class ConfigurationUtility(tk.Tk):
                     getattr(self, var_name).trace_add("write", callback=lambda *_, cb=callback: cb())
 
         self.mainloop()
-
 
     def _set_window_properties(self):
         self.logger.debug("Configuring window properties...")
@@ -171,6 +171,7 @@ class ConfigurationUtility(tk.Tk):
         self.logger.debug("Reading currently defined random colours...")
         for color in self.loaded_config.get(["generator_config", "colours", "random_colours"], []):
             if validate.is_hex_color(color):
+                self._random_cols.append(color.lower())
                 self._random_colors_ctrl.add_item(color.lower())
                 self.logger.debug(f"  -> Added {color.lower()}")
 
@@ -202,6 +203,7 @@ class ConfigurationUtility(tk.Tk):
                 ("generator_config", "font", "face"): self._font_face.get(),
                 ("generator_config", "font", "size"): self._font_size.get(),
                 ("generator_config", "sound_file"): self._sound_file.get(),
+                ("generator_config", "colours", "random_colours"): self._random_cols.get(),
 
                 # Editor settings
                 ("editor_config", "theme"): self._theme_ctrl.get_backend_value()
@@ -501,8 +503,8 @@ class ConfigurationUtility(tk.Tk):
             self._preferences_container.grid_rowconfigure(i, minsize=35)
 
         # Define random colour treeview controls
-        self._add_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Add")
-        self._rem_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Remove")
+        self._add_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Add", command=self.add_random_color)
+        self._rem_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Remove", command=self.rem_random_color)
         self._add_col_btn.grid(row=1, column=0, padx=(0, 2), sticky="ew")
         self._rem_col_btn.grid(row=1, column=1, padx=(2, 0), sticky="ew")
 
@@ -560,6 +562,31 @@ class ConfigurationUtility(tk.Tk):
         self._preference_tab.grid_columnconfigure(1, weight=1, uniform="column")
         self._preference_tab.grid_rowconfigure(0, weight=1, uniform="row")
         self._preference_tab.grid_rowconfigure(1, weight=1, uniform="row")
+
+    def rem_random_color(self):
+        """Remove selected color random colors pool"""
+        selected_items = list(self._random_colors_ctrl.treeview.selection())[::-1]
+        if not selected_items:
+            return
+
+        for item in selected_items:
+            value = self._random_colors_ctrl.treeview.item(item, 'text')
+            self.logger.info(f"Removing {value} from random colors")
+            self._random_cols.remove(value)
+            self._random_colors_ctrl.treeview.delete(item)
+
+    def add_random_color(self):
+        """Add color to the random colors pool"""
+        r = self._sliderval_r.get()
+        g = self._sliderval_g.get()
+        b = self._sliderval_b.get()
+
+        if (hex_color := rgb_to_hex(r, g, b)) not in self._random_cols.get():
+            self.logger.info(f"Adding {hex_color} to random colors")
+            self._random_cols.append(hex_color)
+            self._random_colors_ctrl.add_item(hex_color)
+            return
+        self.logger.warning(f"Colour '{hex_color}' already added to the color pool")
 
 
     def _on_closing(self, *_):

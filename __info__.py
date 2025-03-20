@@ -34,7 +34,8 @@ GENERATOR_SCHEMA = {
                 "dark_text": {"type": "string", "pattern": "^#([A-Fa-f0-9]{6})$"},
                 "random_colours": {
                     "type": "array",
-                    "items": {"type": "string", "pattern": "^#([A-Fa-f0-9]{6})$"}
+                    "items": {"type": "string", "pattern": "^#([A-Fa-f0-9]{6})$"},
+                    "minItems": 1
                 }
             },
             "required": ["light_text", "dark_text", "random_colours"]

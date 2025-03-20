@@ -25,9 +25,10 @@ class ConfigurationUtility(tk.Tk):
         self.logger = init_logger("editor", "DEBUG", True)
         self.logger.info("Launching Editor...")
 
+        style_customisations = [('Treeview', {"rowheight": 25})]
+        self.theme_helper = ThemeHelper(self, config.app_theme, customisations=style_customisations)
         self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json")
         self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json").json_data
-        self.theme_helper = ThemeHelper(self, config.app_theme)
 
         self._set_window_properties()
 

@@ -26,7 +26,6 @@ class ConfigurationUtility(tk.Tk):
         self.logger.info("Launching Editor...")
 
         style_customisations = [('Treeview', {"rowheight": 25})]
-        self.theme_helper = ThemeHelper(self, config.app_theme, customisations=style_customisations)
         self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json")
         self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json")
 
@@ -65,9 +64,8 @@ class ConfigurationUtility(tk.Tk):
             setattr(self, var_name, var_type)
 
         # Apply the Sun Valley theme, and title bar colour (Windows Only)
+        self.theme_helper = ThemeHelper(self, config.app_theme, customisations=style_customisations)
         self.theme_helper.apply_theme()
-
-        # self._list_data.trace_add("write", lambda *_: print(self._list_data.get()))
 
         self._define_interface()
         self.populate_interface()

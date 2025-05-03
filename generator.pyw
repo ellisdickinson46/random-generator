@@ -29,7 +29,11 @@ class RandomGenerator(tk.Tk):
         self._ = self.translations.gettext
 
         self._list_data = JSONHandler(json_file=f"{__info__.CONFIG_DIR}/lists.json")
-        self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png")
+        
+        tk_version = tuple(int(part) for part in str(tk.TkVersion).split('.'))
+        if tk_version >= (8, 6):
+            self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png")
+
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
@@ -41,6 +45,7 @@ class RandomGenerator(tk.Tk):
         ))
 
         # Define Window Properties
+        self.logger.debug(f"Configuring window properties... (tk Version: {str(tk_version)})")
         self.title(self._("_window_title"))
         self.attributes('-topmost', self.config.enable_always_on_top)
         self.geometry('x'.join(str(x) for x in self.config.app_size))
@@ -48,7 +53,8 @@ class RandomGenerator(tk.Tk):
         signal.signal(signal.SIGINT, self._on_closing)
         self.resizable(0,0)
         self.style.configure('MatchedBg.TButton')
-        self.iconphoto(True, self.app_icon)
+        if hasattr(self, "app_icon"):
+            self.iconphoto(True, self.app_icon)
 
         # Define the App ID for the Windows Shell Environment
         # (This allows the display of app icons in the taskbar and window grouping across scripts)

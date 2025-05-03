@@ -79,18 +79,23 @@ class ConfigurationUtility(tk.Tk):
         self.mainloop()
 
     def _set_window_properties(self):
-        self.logger.debug("Configuring window properties...")
+        tk_version = tuple(int(part) for part in str(tk.TkVersion).split('.'))
+        self.logger.debug(f"Configuring window properties... (tk Version: {str(tk_version)})")
 
         # Configure Tk Window Properties
         self.lift()
         self.focus_force()
-        self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+
+        if tk_version >= (8, 6):
+            self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+
         self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.title(self.config.app_title)
         self.resizable(0, 0)
         self.attributes('-topmost', True)
         self.after_idle(self.attributes,'-topmost', False)
-        self.iconphoto(True, self.app_icon)
+        if hasattr(self, "app_icon"):
+            self.iconphoto(True, self.app_icon)
         self.protocol('WM_DELETE_WINDOW', self._on_closing)
         signal.signal(signal.SIGINT, self._on_closing)
 

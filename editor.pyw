@@ -135,7 +135,7 @@ class ConfigurationUtility(tk.Tk):
         # Walk through the locale directory to find .mo files
         for root, _, files in os.walk(locale_dir):
             if root.endswith('LC_MESSAGES'):
-                if any(file.endswith('.mo') for file in files):
+                if any(file.endswith('generator.po') for file in files):
                     # Extract the locale from the parent directory of LC_MESSAGES
                     locale_code = os.path.basename(os.path.dirname(root))
                     

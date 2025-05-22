@@ -14,13 +14,11 @@ class ThemeHelper:
         self.root = root
         self.theme = theme.lower()
         self.customisations = customisations
+        self.current_theme = lambda: darkdetect.theme().lower()
 
         self.root.lift()
 
     def apply_theme(self):
-        if isinstance(self.root, tk.Tk):
-            sv_ttk.set_theme(darkdetect.theme().lower(), self.root)
-
         if self.theme == "auto":
             self.listener = darkdetect.Listener(self._change_theme)
             self._listener_thread = threading.Thread(
@@ -28,6 +26,9 @@ class ThemeHelper:
                 daemon=True
             )
             self._listener_thread.start()
+
+        if isinstance(self.root, tk.Tk):
+            sv_ttk.set_theme(self.current_theme(), self.root)
 
         self.apply_title_bar_theme()
         self._apply_customisations()
@@ -61,7 +62,7 @@ class ThemeHelper:
                 if override_color is not None:
                     new_col = override_color
                 else:
-                    new_col = titlebar_colours.get(self.theme, "red")
+                    new_col = titlebar_colours.get(self.current_theme(), "red")
 
                 hwnd = ctypes.windll.user32.FindWindowW(None, self.root.title())
                 pywinstyles.change_header_color(hwnd, color=new_col)

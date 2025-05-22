@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List
 
-from core.apply_theme import ThemeHelper
+from core.ui.apply_theme import ThemeHelper
 
 class TTKDialogAction(Enum):
     OK = "ok"

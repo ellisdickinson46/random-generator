@@ -15,7 +15,7 @@ import warnings
 from collections.abc import Mapping
 from datetime import timezone
 
-from _helpers import logbook
+from libs import logbook
 
 from .helpers import datetime_utcfromtimestamp
 

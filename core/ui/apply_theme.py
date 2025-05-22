@@ -14,16 +14,13 @@ class ThemeHelper:
         self.root = root
         self.theme = theme.lower()
         self.customisations = customisations
-        
-        current_theme = darkdetect.theme().lower()
-        if self.theme == "auto":
-            self.theme = current_theme
 
         self.root.lift()
 
     def apply_theme(self):
         if isinstance(self.root, tk.Tk):
-            sv_ttk.set_theme(self.theme, self.root)
+            sv_ttk.set_theme(darkdetect.theme().lower(), self.root)
+
         if self.theme == "auto":
             self.listener = darkdetect.Listener(self._change_theme)
             self._listener_thread = threading.Thread(
@@ -31,9 +28,10 @@ class ThemeHelper:
                 daemon=True
             )
             self._listener_thread.start()
+
         self.apply_title_bar_theme()
         self._apply_customisations()
-    
+
     def _apply_customisations(self):
         s = ttk.Style()
         for _, (element, options) in enumerate(self.customisations):

@@ -1,46 +1,41 @@
-import ctypes
 import json
 import os
-import platform
-import signal
 import traceback
 import tkinter as tk
 from tkinter import ttk, font
 import webbrowser
 
 from core.__info__ import (
-    CONFIG_DIR, ICONS_DIR, SOUNDS_DIR, APP_ID, LOCALE_DIR, LANGUAGE_MAP, EDITOR_SCHEMA,
+    CONFIG_DIR, SOUNDS_DIR, LOCALE_DIR, LANGUAGE_MAP, EDITOR_SCHEMA,
     APP_VERSIONS, PROJECT_LINK, PROJECT_TITLE
 )
-from core.apply_theme import ThemeHelper
 from core.ui.widgets import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
 from core.ui.tk_var import DictVar, ListVar
 from core.configuration import EditorAppSettings
 from core.data import JSONHandler, custom_json_dump
 from core.convert import hex_to_rgb, rgb_to_hex
-from core.logger import init_logger
+from core.ui.base_window import BaseTkWindow
 
 from editor.validate_input import is_hex_color, is_in_list, is_valid_font_size
 
 
-class ConfigurationUtility(tk.Tk):
+class ConfigurationUtility(BaseTkWindow):
     def __init__(self, config: EditorAppSettings):
-        tk.Tk.__init__(self)
+        super().__init__(
+            app_size=config.app_size,
+            app_icon="appicon.png",
+            app_title="window title",
+            theme=config.app_theme,
+            logger_name="editor",
+        )
         self.config = config
 
-        self.logger = init_logger("editor", "DEBUG", True)
-        self.logger.info("Launching Editor...")
-
-        style_customisations = [('Treeview', {"rowheight": 25})]
         self.loaded_config = JSONHandler(f"{CONFIG_DIR}/app_config.json")
         self.list_data = JSONHandler(f"{CONFIG_DIR}/lists.json")
-
-        self._set_window_properties()
 
         # Window Bindings
         self.bind('<<NotebookTabChanged>>', lambda _: self.update_idletasks())
         self.bind("<<ComboboxSelected>>", self.post_select_focus)
-        self.bind("<Button-1>", self.clear_focus)
 
         self.fontsize_defaults = (12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48)
         self.fontfaces_available = font.families()
@@ -69,10 +64,6 @@ class ConfigurationUtility(tk.Tk):
         for _, (var_name, var_type, _) in enumerate(vars_to_define):
             setattr(self, var_name, var_type)
 
-        # Apply the Sun Valley theme, and title bar colour (Windows Only)
-        self.theme_helper = ThemeHelper(self, config.app_theme, customisations=style_customisations)
-        self.theme_helper.apply_theme()
-
         self._define_interface()
         self.populate_interface()
 
@@ -83,45 +74,6 @@ class ConfigurationUtility(tk.Tk):
                     getattr(self, var_name).trace_add("write", callback=lambda *_, cb=callback: cb())
 
         self.mainloop()
-
-    def _set_window_properties(self):
-        tk_version = tuple(int(part) for part in str(tk.TkVersion).split('.'))
-        self.logger.debug(f"Configuring window properties... (tk Version: {str(tk_version)})")
-
-        # Configure Tk Window Properties
-        self.lift()
-        self.focus_force()
-
-        if tk_version >= (8, 6):
-            self.app_icon = tk.PhotoImage(file=f"{ICONS_DIR}/appicon.png").subsample(3,3)
-
-        self.geometry('x'.join(str(x) for x in self.config.app_size))
-        self.title(self.config.app_title)
-        self.resizable(0, 0)
-        self.attributes('-topmost', True)
-        self.after_idle(self.attributes,'-topmost', False)
-        if hasattr(self, "app_icon"):
-            self.iconphoto(True, self.app_icon)
-        self.protocol('WM_DELETE_WINDOW', self._on_closing)
-        signal.signal(signal.SIGINT, self._on_closing)
-
-        # Define Application ID for Windows environments
-        if platform.system() == "Windows":
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
-
-
-    def clear_focus(self, event):
-        ttk_focusable_widgets = (ttk.Entry, ttk.Button, ttk.Combobox, ttk.Spinbox, ttk.Scale)
-        tk_focusable_classes = ['Entry', 'Button', 'Text', 'Scale', 'Spinbox']
-
-        # Check if the clicked widget is focusable
-        if (
-            isinstance(event.widget, ttk_focusable_widgets) or 
-            event.widget.winfo_class() in tk_focusable_classes
-        ):
-            # Let the widget keep focus
-            return  
-        self.focus_set()
 
 
     def get_available_sounds(self) -> list:
@@ -630,14 +582,6 @@ class ConfigurationUtility(tk.Tk):
         self.logger.warning(f"Colour '{hex_color}' already added to the color pool")
 
 
-    def _on_closing(self, *_):
-        self.logger.info("Termination signal received")
-        self.logger.debug("  -> Stopping theme listener...")
-        self.theme_helper.stop_listener()
-        self.logger.info("  -> Exiting...")
-        self.destroy()
-
-
     def update_font_preview(self):
         font_face = self._font_face.get()
         font_size = self._font_size.get()
@@ -651,7 +595,6 @@ class ConfigurationUtility(tk.Tk):
         if not is_valid_font_size(font_size):
             self.logger.warning("Cannot update font preview: Invalid font size, the font face must be an integer no larger than 500")
             return
-
 
         # If both conditions are met, update the preview
         self.logger.info(f"Updating font preview... ({font_face}, {font_size})")

@@ -1,40 +1,38 @@
-import ctypes
 import gettext
 import os
-import platform
 import random
-import signal
 import threading
 import tkinter as tk
 from tkinter import ttk
 
 from core.__info__ import (
-    APP_ID, CONFIG_DIR, ICONS_DIR, GENERATOR_SCHEMA, LOCALE_DIR, SOUNDS_DIR
+    CONFIG_DIR, GENERATOR_SCHEMA, LOCALE_DIR, SOUNDS_DIR
 )
-from core.apply_theme import ThemeHelper
 from core.configuration import GeneratorAppSettings
 from core.data import JSONHandler
-from core.logger import init_logger
 from core.ui.widgets import TTKDialog, TTKDialogType, TTKDialogAction
-from core.wcag_contrast import determine_text_color
-
+from core.ui.wcag_contrast import determine_text_color
+from core.ui.base_window import BaseTkWindow
 from libs.playsound3 import playsound
 from libs.polib import polib
 
-class RandomGenerator(tk.Tk):
+class RandomGenerator(BaseTkWindow):
     def __init__(self, config: GeneratorAppSettings):
-        tk.Tk.__init__(self)
+        super().__init__(
+            app_size=config.app_size,
+            app_icon="appicon.png",
+            app_title="window title",
+            theme=config.app_theme,
+            topmost=config.enable_always_on_top,
+            logger_name="generator",
+            log_to_file=config.enable_log_to_file
+        )
         self.config = config
-        self.logger = init_logger("generator", "DEBUG", getattr(self.config, "enable_log_to_file", False))
-        self.logger.info("Launching Random Generator...")
+
         self.translations = self.set_language(self.config.language)
         self._ = self.translations.gettext
 
         self._list_data = JSONHandler(json_file=f"{CONFIG_DIR}/lists.json")
-        
-        tk_version = tuple(int(part) for part in str(tk.TkVersion).split('.'))
-        if tk_version >= (8, 6):
-            self.app_icon = tk.PhotoImage(file=f"{ICONS_DIR}/appicon.png")
 
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
@@ -47,37 +45,12 @@ class RandomGenerator(tk.Tk):
         ))
 
         # Define Window Properties
-        self.logger.debug(f"Configuring window properties... (tk Version: {str(tk_version)})")
-        self.title(self._("_window_title"))
-        self.attributes('-topmost', self.config.enable_always_on_top)
-        self.geometry('x'.join(str(x) for x in self.config.app_size))
-        self.protocol('WM_DELETE_WINDOW', self._on_closing)
-        signal.signal(signal.SIGINT, self._on_closing)
-        self.resizable(0,0)
         self.style.configure('MatchedBg.TButton')
         if hasattr(self, "app_icon"):
             self.iconphoto(True, self.app_icon)
 
-        # Define the App ID for the Windows Shell Environment
-        # (This allows the display of app icons in the taskbar and window grouping across scripts)
-        if platform.system() == "Windows":
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
-
-        # Apply the Sun Valley theme and title bar colour on platforms that support it
-        self.theme_helper = ThemeHelper(self, config.app_theme)
-        self.theme_helper.apply_theme()
-        
         self._define_interface()
         self.mainloop()
-
-
-    def _on_closing(self, *_):
-        self.logger.info("Termination signal received")
-        self.logger.debug("  -> Stopping theme listener...")
-        self.theme_helper.stop_listener()
-        self.logger.info("  -> Exiting...")
-        self.destroy()
-
 
     def set_language(self, lang_code):
         self.compile_translations(LOCALE_DIR)

@@ -12,6 +12,9 @@ APP_VERSIONS = {
     "editor": "2.2"
 }
 
+# Logging Level
+LOG_LEVEL = "DEBUG"
+
 # Directory Definitions
 ASSETS_DIR = "assets"
 CONFIG_DIR = "config"

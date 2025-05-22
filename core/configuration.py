@@ -1,4 +1,4 @@
-from _helpers.data import JSONHandler, JSONValidator
+from .data import JSONHandler, JSONValidator
 
 class GeneratorAppSettings:
     def __init__(self, json_file_name, schema):

@@ -3,10 +3,10 @@ import platform
 import sys
 import threading
 import tkinter as tk
-import tkinter.ttk as ttk
+from tkinter import ttk
 
-from _helpers import darkdetect
-from _helpers import sv_ttk
+from libs import darkdetect
+from libs import sv_ttk
 
 
 class ThemeHelper:
@@ -48,7 +48,7 @@ class ThemeHelper:
 
     def apply_title_bar_theme(self, override_color=None):
         if platform.system() == "Windows":
-            from _helpers import pywinstyles
+            from libs import pywinstyles
 
             winver = sys.getwindowsversion()
             titlebar_colours = {
@@ -67,9 +67,6 @@ class ThemeHelper:
 
                 hwnd = ctypes.windll.user32.FindWindowW(None, self.root.title())
                 pywinstyles.change_header_color(hwnd, color=new_col)
-
-                # print(root)
-                # print(new_col)
             elif winver.major == 10:
                 # Windows 10 Method
                 if self.theme == "dark":
@@ -77,7 +74,8 @@ class ThemeHelper:
                 else:
                     pywinstyles.apply_style(self.root, "normal")
 
-                # A hacky way to update the title bar's color on Windows 10 (it doesn't update instantly like on Windows 11)
+                # A hacky way to update the title bar's color on Windows 10
+                # (it doesn't update instantly like on Windows 11)
                 self.root.wm_attributes("-alpha", 0.99)
                 self.root.wm_attributes("-alpha", 1)
 

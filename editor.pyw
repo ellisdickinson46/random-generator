@@ -8,13 +8,19 @@ import tkinter as tk
 from tkinter import ttk, font
 import webbrowser
 
-from _helpers.apply_theme import ThemeHelper
-from _helpers.custom_tk import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox, ListVar, DictVar
-from _helpers.configuration import EditorAppSettings
-from _helpers.data import JSONHandler, custom_json_dump, hex_to_rgb, rgb_to_hex
-from _helpers.logger import init_logger
-from _helpers import validate
-import __info__
+from core.__info__ import (
+    CONFIG_DIR, ICONS_DIR, SOUNDS_DIR, APP_ID, LOCALE_DIR, LANGUAGE_MAP, EDITOR_SCHEMA,
+    APP_VERSIONS, PROJECT_LINK, PROJECT_TITLE
+)
+from core.apply_theme import ThemeHelper
+from core.ui.widgets import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
+from core.ui.tk_var import DictVar, ListVar
+from core.configuration import EditorAppSettings
+from core.data import JSONHandler, custom_json_dump
+from core.convert import hex_to_rgb, rgb_to_hex
+from core.logger import init_logger
+
+from editor.validate_input import is_hex_color, is_in_list, is_valid_font_size
 
 
 class ConfigurationUtility(tk.Tk):
@@ -26,8 +32,8 @@ class ConfigurationUtility(tk.Tk):
         self.logger.info("Launching Editor...")
 
         style_customisations = [('Treeview', {"rowheight": 25})]
-        self.loaded_config = JSONHandler(f"{__info__.CONFIG_DIR}/app_config.json")
-        self.list_data = JSONHandler(f"{__info__.CONFIG_DIR}/lists.json")
+        self.loaded_config = JSONHandler(f"{CONFIG_DIR}/app_config.json")
+        self.list_data = JSONHandler(f"{CONFIG_DIR}/lists.json")
 
         self._set_window_properties()
 
@@ -87,7 +93,7 @@ class ConfigurationUtility(tk.Tk):
         self.focus_force()
 
         if tk_version >= (8, 6):
-            self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png").subsample(3,3)
+            self.app_icon = tk.PhotoImage(file=f"{ICONS_DIR}/appicon.png").subsample(3,3)
 
         self.geometry('x'.join(str(x) for x in self.config.app_size))
         self.title(self.config.app_title)
@@ -101,8 +107,7 @@ class ConfigurationUtility(tk.Tk):
 
         # Define Application ID for Windows environments
         if platform.system() == "Windows":
-            app_id = getattr(__info__, "APP_ID", "fallback")
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
 
 
     def clear_focus(self, event):
@@ -114,15 +119,15 @@ class ConfigurationUtility(tk.Tk):
             isinstance(event.widget, ttk_focusable_widgets) or 
             event.widget.winfo_class() in tk_focusable_classes
         ):
-            return  # Let the widget keep focus
+            # Let the widget keep focus
+            return  
         self.focus_set()
 
 
     def get_available_sounds(self) -> list:
-        sound_dir = f"{__info__.CONFIG_DIR}/sounds"
         supported_formats = (".mp3", '.wav')
         available_sounds = []
-        for file in os.listdir(sound_dir):
+        for file in os.listdir(SOUNDS_DIR):
             if file.endswith(supported_formats):
                 available_sounds.append(file)
         return sorted(available_sounds)
@@ -130,10 +135,9 @@ class ConfigurationUtility(tk.Tk):
 
     def get_supported_languages(self) -> dict:
         available_locales = {}
-        locale_dir = __info__.LOCALE_DIR
 
-        # Walk through the locale directory to find .mo files
-        for root, _, files in os.walk(locale_dir):
+        # Walk through the locale directory to find generator language files
+        for root, _, files in os.walk(LOCALE_DIR):
             if root.endswith('LC_MESSAGES'):
                 if any(file.endswith('generator.po') for file in files):
                     # Extract the locale from the parent directory of LC_MESSAGES
@@ -142,11 +146,11 @@ class ConfigurationUtility(tk.Tk):
                     if locale_code not in available_locales:
                         try:
                             # Resolve language name using langcodes
-                            display_name = __info__.LANGUAGE_MAP.get(locale_code)
+                            display_name = LANGUAGE_MAP.get(locale_code)
                         except Exception:
                             # Fallback to the code itself if langcodes fails
                             display_name = locale_code
-                        
+
                         available_locales[display_name] = locale_code
 
         # Return a sorted dictionary
@@ -178,7 +182,7 @@ class ConfigurationUtility(tk.Tk):
         
         self.logger.debug("Reading currently defined random colours...")
         for color in self.loaded_config.get(["generator_config", "colours", "random_colours"], []):
-            if validate.is_hex_color(color):
+            if is_hex_color(color):
                 self._random_cols.append(color.lower())
                 self._random_colors_ctrl.add_item(color.lower())
                 self.logger.debug(f"  -> Added {color.lower()}")
@@ -289,18 +293,14 @@ class ConfigurationUtility(tk.Tk):
 
 
     def _about_tab_ui(self):
-        project_title = getattr(__info__, "PROJECT_TITLE", "PROJECT_TITLE")
-        project_link = getattr(__info__, "PROJECT_LINK", "")
-        app_versions = getattr(__info__, "APP_VERSIONS", {})
-        
         self._about_tab_frm = ttk.Frame(self._about_tab)
         self._about_tab_frm.place(anchor="c", relx=.5, rely=.4)
 
         labels = [
             ("_app_icon_lbl", "", {"image": self.app_icon}),
-            ("_about_name", project_title, {"font": ("TkDefaultFont", 25, "bold")}),
-            ("_about_appver", f"Generator Version: {app_versions.get('generator', 'GENERATOR_VERSION')}", {}),
-            ("_about_confver", f"Editor Version: {app_versions.get('editor', 'EDITOR_VERSION')}", {})
+            ("_about_name", PROJECT_TITLE, {"font": ("TkDefaultFont", 25, "bold")}),
+            ("_about_appver", f"Generator Version: {APP_VERSIONS.get('generator', 'GENERATOR_VERSION')}", {}),
+            ("_about_confver", f"Editor Version: {APP_VERSIONS.get('editor', 'EDITOR_VERSION')}", {})
         ]
         for _, (lbl_attr_name, text, options) in enumerate(labels):
             setattr(self, lbl_attr_name, ttk.Label(
@@ -308,7 +308,7 @@ class ConfigurationUtility(tk.Tk):
             ))
             getattr(self, lbl_attr_name).pack(pady=2)
 
-        self._github_btn = ttk.Button(self._about_tab_frm, text="View the project on GitHub", takefocus=0, command=lambda: webbrowser.open(project_link))
+        self._github_btn = ttk.Button(self._about_tab_frm, text="View the project on GitHub", takefocus=0, command=lambda: webbrowser.open(PROJECT_LINK))
         self._github_btn.pack(pady=(20, 0))
 
 
@@ -519,13 +519,13 @@ class ConfigurationUtility(tk.Tk):
                 "textvariable": self._font_face,
                 "values": self.fontfaces_available,
                 "validate": "focusout",
-                "validatecommand": lambda: validate.is_in_list(self.fontfaces_available, self._font_face.get())
+                "validatecommand": lambda: is_in_list(self.fontfaces_available, self._font_face.get())
             }, "ew"),
             ("font_size", "Font Size", ttk.Combobox, {
                 "textvariable": self._font_size,
                 "values": self.fontsize_defaults,
                 "validate": "focus",
-                "validatecommand": lambda: validate.is_integer(self._font_size.get())
+                "validatecommand": lambda: is_valid_font_size(self._font_size.get())
             }, "ew"),
             ("random_colors", "Random Colours", ScrollableListbox, {
                 "height": 6
@@ -640,17 +640,18 @@ class ConfigurationUtility(tk.Tk):
 
     def update_font_preview(self):
         font_face = self._font_face.get()
+        font_size = self._font_size.get()
+
         # Check if the font face is a string
         if not isinstance(font_face, str):
             self.logger.warning("Cannot update font preview: Invalid font face, the font face must be a string")
             return
 
-        # Attempt to convert font size to an integer
-        try:
-            font_size = int(self._font_size.get())
-        except ValueError:
-            self.logger.warning("Cannot update font preview: Invalid font size, the font face must be an integer")
+        # Check is valid font size
+        if not is_valid_font_size(font_size):
+            self.logger.warning("Cannot update font preview: Invalid font size, the font face must be an integer no larger than 500")
             return
+
 
         # If both conditions are met, update the preview
         self.logger.info(f"Updating font preview... ({font_face}, {font_size})")
@@ -674,7 +675,7 @@ class ConfigurationUtility(tk.Tk):
 
 if __name__ == "__main__":
     try:
-        APP_CONFIG = EditorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json", __info__.EDITOR_SCHEMA)
+        APP_CONFIG = EditorAppSettings(f"{CONFIG_DIR}/app_config.json", EDITOR_SCHEMA)
         instance = ConfigurationUtility(APP_CONFIG)
     except Exception as e:
         print(traceback.format_exc())

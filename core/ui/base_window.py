@@ -1,3 +1,4 @@
+import builtins
 import os
 import platform
 import signal
@@ -11,6 +12,11 @@ from core.ui.apply_theme import ThemeHelper
 
 
 class BaseTkWindow(tk.Tk):
+    @property
+    def _(self):
+        # Return call to whatever builtins._ is currently bound to
+        return builtins._
+
     def __init__(self, app_id=APP_ID, app_icon=None, app_size=(800, 600), app_title="App Window",
                  theme="light", topmost=False, logger_name="app", log_to_file=False):
         super().__init__()

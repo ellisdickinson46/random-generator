@@ -1,5 +1,3 @@
-import gettext
-import os
 import random
 import threading
 import tkinter as tk
@@ -13,27 +11,30 @@ from core.data import JSONHandler
 from core.ui.widgets import TTKDialog, TTKDialogType, TTKDialogAction
 from core.ui.wcag_contrast import determine_text_color
 from core.ui.base_window import BaseTkWindow
+from core.locale_manager import LocaleManager
 from libs.playsound3 import playsound
-from libs.polib import polib
 
 class RandomGenerator(BaseTkWindow):
     def __init__(self, config: GeneratorAppSettings):
         super().__init__(
             app_size=config.app_size,
             app_icon="appicon.png",
-            app_title="window title",
             theme=config.app_theme,
             topmost=config.enable_always_on_top,
             logger_name="generator",
             log_to_file=config.enable_log_to_file
         )
         self.config = config
+        self.locale_manager = LocaleManager(
+            domain="generator",
+            localedir=LOCALE_DIR,
+            default_locale=self.config.language,
+            logger_instance=self.logger
+        )
 
-        self.translations = self.set_language(self.config.language)
-        self._ = self.translations.gettext
+        self.title(self._('_window_title'))
 
         self._list_data = JSONHandler(json_file=f"{CONFIG_DIR}/lists.json")
-
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
@@ -44,36 +45,11 @@ class RandomGenerator(BaseTkWindow):
             f"{self._('_window_title')} - {self._('Loaded List')}: {self.loaded_list_name.get()}"
         ))
 
-        # Define Window Properties
+        # Configure additional styles
         self.style.configure('MatchedBg.TButton')
-        if hasattr(self, "app_icon"):
-            self.iconphoto(True, self.app_icon)
 
         self._define_interface()
         self.mainloop()
-
-    def set_language(self, lang_code):
-        self.compile_translations(LOCALE_DIR)
-        try:
-            lang_translations = gettext.translation("generator", localedir=LOCALE_DIR, languages=[lang_code])
-            self.logger.info(f"Setting language... [Language: {lang_code}]")
-        except FileNotFoundError:
-            lang_translations = gettext.translation("generator", localedir=LOCALE_DIR, languages=['en'])
-            self.logger.warning(f"Failed to set langauge, falling back to English... [Language: {lang_code}]")
-        lang_translations.install()
-        return lang_translations
-
-
-    def compile_translations(self, locales_dir: str):
-        self.logger.info("Compiling locales...")
-        for lang in os.listdir(locales_dir):
-            po_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.po")
-            mo_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.mo")
-
-            if os.path.exists(po_file):
-                self.logger.debug(f"  -> Compiling {po_file} -> {mo_file}")
-                profile = polib.pofile(po_file)
-                profile.save_as_mofile(mo_file)
 
 
     def _change_list(self):

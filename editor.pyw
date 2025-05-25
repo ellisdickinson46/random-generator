@@ -9,12 +9,16 @@ from core.__info__ import (
     CONFIG_DIR, SOUNDS_DIR, LOCALE_DIR, LANGUAGE_MAP, EDITOR_SCHEMA,
     APP_VERSIONS, PROJECT_LINK, PROJECT_TITLE
 )
-from core.ui.widgets import Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox
+from core.ui.widgets import (
+    Limiter, ReadOnlyTextWithVar, OptionMenuWrapper, ScrollableListbox, DynamicNotebook,
+    DynamicLabelframe
+)
 from core.ui.tk_var import DictVar, ListVar
 from core.configuration import EditorAppSettings
 from core.data import JSONHandler, custom_json_dump
 from core.convert import hex_to_rgb, rgb_to_hex
 from core.ui.base_window import BaseTkWindow
+from core.locale_manager import LocaleManager
 
 from editor.validate_input import is_hex_color, is_in_list, is_valid_font_size
 
@@ -24,11 +28,18 @@ class ConfigurationUtility(BaseTkWindow):
         super().__init__(
             app_size=config.app_size,
             app_icon="appicon.png",
-            app_title="window title",
             theme=config.app_theme,
             logger_name="editor",
         )
         self.config = config
+        self.locale_manager = LocaleManager(
+            domain="editor",
+            localedir=LOCALE_DIR,
+            default_locale="en",
+            logger_instance=self.logger
+        )
+
+        self.title(self._('WINDOW_TITLE'))
 
         self.loaded_config = JSONHandler(f"{CONFIG_DIR}/app_config.json")
         self.list_data = JSONHandler(f"{CONFIG_DIR}/lists.json")
@@ -223,19 +234,19 @@ class ConfigurationUtility(BaseTkWindow):
 
 
     def _define_interface(self):
-        self._tab_control = ttk.Notebook(self, takefocus=0)
+        self._tab_control = DynamicNotebook(self, takefocus=0)
         self._tab_control.pack(expand=True, fill="both")
 
         tabs = [
-            ("_preference_tab", "Generator Preferences"),
-            ("_editor_tab", "List Editor"),
-            ("_save_tab", "Save"),
-            ("_about_tab", "About"),
+            ("_preference_tab", self.locale_manager.register_ui("TAB_GENERATOR_PREFERENCES")),
+            ("_editor_tab", self.locale_manager.register_ui("TAB_LIST_EDITOR")),
+            ("_save_tab", self.locale_manager.register_ui("TAB_SAVE")),
+            ("_about_tab", self.locale_manager.register_ui("TAB_ABOUT")),
         ]
-        for _, (tab_attr_name, tab_text) in enumerate(tabs):
+        for _, (tab_attr_name, tab_textvar) in enumerate(tabs):
             setattr(self, tab_attr_name, tk.Frame(self._tab_control))
             self._tab_control.add(
-                getattr(self, tab_attr_name), text=tab_text
+                getattr(self, tab_attr_name), textvariable=tab_textvar
             )
 
         self._preference_tab_ui()
@@ -248,8 +259,9 @@ class ConfigurationUtility(BaseTkWindow):
         self._about_tab_frm = ttk.Frame(self._about_tab)
         self._about_tab_frm.place(anchor="c", relx=.5, rely=.4)
 
+        about_appicon = self.app_icon.subsample(3, 3)
         labels = [
-            ("_app_icon_lbl", "", {"image": self.app_icon}),
+            ("_app_icon_lbl", "", {"image": about_appicon}),
             ("_about_name", PROJECT_TITLE, {"font": ("TkDefaultFont", 25, "bold")}),
             ("_about_appver", f"Generator Version: {APP_VERSIONS.get('generator', 'GENERATOR_VERSION')}", {}),
             ("_about_confver", f"Editor Version: {APP_VERSIONS.get('editor', 'EDITOR_VERSION')}", {})
@@ -260,7 +272,9 @@ class ConfigurationUtility(BaseTkWindow):
             ))
             getattr(self, lbl_attr_name).pack(pady=2)
 
-        self._github_btn = ttk.Button(self._about_tab_frm, text="View the project on GitHub", takefocus=0, command=lambda: webbrowser.open(PROJECT_LINK))
+        self._github_btn = ttk.Button(
+            self._about_tab_frm, text="View the project on GitHub",
+            takefocus=0, command=lambda: webbrowser.open(PROJECT_LINK))
         self._github_btn.pack(pady=(20, 0))
 
 
@@ -377,11 +391,23 @@ class ConfigurationUtility(BaseTkWindow):
 
         # Define save controls
         save_controls = [
-            ("save_btn", "Save configuration...", ttk.Button, {"style": "Accent.TButton", "command": lambda *_: self.save_configuration()}),
-            ("save_status_lbl", "Check your configuration options before saving!", ttk.Label, {})
+            (
+                "save_btn",
+                ttk.Button, {
+                    "style": "Accent.TButton",
+                    "command": lambda *_: self.save_configuration(),
+                    "textvariable": self.locale_manager.register_ui("ACTION_SAVE_CONFIG")
+                }
+            ),
+            (
+                "save_status_lbl",
+                ttk.Label, {
+                    "text": "Check your configuration options before saving!" 
+                }
+            )
         ]
-        for i, (ctrl_attr_name, text, ctrl_type, options) in enumerate(save_controls):
-            setattr(self, f"_{ctrl_attr_name}", ctrl_type(self._save_controls, text=text, **options))
+        for i, (ctrl_attr_name, ctrl_type, options) in enumerate(save_controls):
+            setattr(self, f"_{ctrl_attr_name}", ctrl_type(self._save_controls, **options))
             getattr(self, f"_{ctrl_attr_name}").grid(row=0, column=i, padx=(0, 10), sticky="ew")
 
         # Define interface section containers
@@ -416,25 +442,25 @@ class ConfigurationUtility(BaseTkWindow):
     def _preference_tab_ui(self):
         # Define interface section containers
         containers = [
-            ("preferences", "Preferences", 2, {
+            ("preferences", self.locale_manager.register_ui("LBLFRM_PREFERENECES"), 2, {
                 "row": 0, "column": 0,
                 "rowspan": 2, "sticky": "nesw",
                 "padx": 5, "pady": 5, "ipadx": 50, "ipady": 50
             }),
-            ("color_select", "Colour Selection", 1, {
+            ("color_select", self.locale_manager.register_ui("LBLFRM_COLOR_SELECTION"), 1, {
                 "row": 0, "column": 1,
                 "sticky": "nesw",
                 "padx": 5, "pady": (5, 2), "ipadx": 20, "ipady": 20
             }),
-            ("font_preview", "Font Preview", 1, {
+            ("font_preview", self.locale_manager.register_ui("LBLFRM_FONT_PREVIEW"), 1, {
                 "row": 1, "column": 1,
                 "sticky": "nesw",
                 "padx": 5, "pady": (2, 5), "ipadx": 20, "ipady": 20
             })
         ]
         for _, (container_name, text, num_of_columns, grid_options) in enumerate(containers):
-            setattr(self, f"_{container_name}_container", ttk.LabelFrame(
-                self._preference_tab, text=f" {text} "
+            setattr(self, f"_{container_name}_container", DynamicLabelframe(
+                self._preference_tab, textvariable=text
             ))
             getattr(self, f"_{container_name}_container").grid(**grid_options)
             for x in range(num_of_columns):
@@ -444,49 +470,49 @@ class ConfigurationUtility(BaseTkWindow):
 
         # Define configurable setting controls
         settings = [
-            ("language", "Interface Language", OptionMenuWrapper, {
+            ("language", self.locale_manager.register_ui("LBL_INTERFACE_LANGUAGE"), OptionMenuWrapper, {
                 "variable": self._language,
                 "values": self.supported_languages
             }, "ew"),
-            ("theme", "Application Theme", OptionMenuWrapper, {
+            ("theme", self.locale_manager.register_ui("LBL_APPLICATION_THEME"), OptionMenuWrapper, {
                 "variable": self._theme,
                 "values": self.supported_themes
             }, "ew"),
-            ("ontop", "Always on top", ttk.Checkbutton, {
+            ("ontop", self.locale_manager.register_ui("LBL_ALWAYS_ON_TOP"), ttk.Checkbutton, {
                 "variable": self._enable_always_on_top
             }, "w"),
-            ("log_to_file", "Log to file", ttk.Checkbutton, {
+            ("log_to_file", self.locale_manager.register_ui("LBL_LOG_TO_FILE"), ttk.Checkbutton, {
                 "variable": self._enable_log_to_file
             }, "w"),
-            ("enable_sound", "Enable Sound", ttk.Checkbutton, {
+            ("enable_sound", self.locale_manager.register_ui("LBL_ENABLE_SOUND"), ttk.Checkbutton, {
                 "variable": self._enable_sound,
                 "state": 'disabled' if (len(self.sound_files_available) == 0) else 'normal'
             }, "w"),
-            ("sound_file", "Sound File", OptionMenuWrapper, {
+            ("sound_file", self.locale_manager.register_ui("LBL_SOUND_FILE"), OptionMenuWrapper, {
                 "variable": self._sound_file,
                 "values": self.sound_files_available,
                 "state": 'disabled' if (len(self.sound_files_available) == 0) else 'normal'
             }, "ew"),
-            ("font_face", "Font Face", ttk.Combobox, {
+            ("font_face", self.locale_manager.register_ui("LBL_FONT_FACE"), ttk.Combobox, {
                 "textvariable": self._font_face,
                 "values": self.fontfaces_available,
                 "validate": "focusout",
                 "validatecommand": lambda: is_in_list(self.fontfaces_available, self._font_face.get())
             }, "ew"),
-            ("font_size", "Font Size", ttk.Combobox, {
+            ("font_size", self.locale_manager.register_ui("LBL_FONT_SIZE"), ttk.Combobox, {
                 "textvariable": self._font_size,
                 "values": self.fontsize_defaults,
                 "validate": "focus",
                 "validatecommand": lambda: is_valid_font_size(self._font_size.get())
             }, "ew"),
-            ("random_colors", "Random Colours", ScrollableListbox, {
+            ("random_colors", self.locale_manager.register_ui("LBL_RANDOM_COLORS"), ScrollableListbox, {
                 "height": 6
             }, "ew"),
             ("random_color_btns", "", tk.Frame, {}, "ew")
         ]
         for i, (setting_name, description, control_type, control_options, sticky_option) in enumerate(settings):
             setattr(self, f"_{setting_name}_lbl", ttk.Label(
-                self._preferences_container, text=description, anchor="e"
+                self._preferences_container, textvariable=description, anchor="e"
             ))
             setattr(self, f"_{setting_name}_ctrl", control_type(
                 self._preferences_container, **control_options
@@ -496,8 +522,8 @@ class ConfigurationUtility(BaseTkWindow):
             self._preferences_container.grid_rowconfigure(i, minsize=35)
 
         # Define random colour treeview controls
-        self._add_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Add", command=self.add_random_color)
-        self._rem_col_btn = ttk.Button(self._random_color_btns_ctrl, text="Remove", command=self.rem_random_color)
+        self._add_col_btn = ttk.Button(self._random_color_btns_ctrl, textvariable=self.locale_manager.register_ui("ACTION_ADD"), command=self.add_random_color)
+        self._rem_col_btn = ttk.Button(self._random_color_btns_ctrl, textvariable=self.locale_manager.register_ui("ACTION_REMOVE"), command=self.rem_random_color)
         self._add_col_btn.grid(row=1, column=0, padx=(0, 2), sticky="ew")
         self._rem_col_btn.grid(row=1, column=1, padx=(2, 0), sticky="ew")
 

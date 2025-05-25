@@ -1,0 +1,112 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+# -----------------------------
+
+# Window Title -
+msgid "WINDOW_TITLE"
+msgstr "Preference Editor"
+
+
+# — Tabs —
+msgid "TAB_GENERATOR_PREFERENCES"
+msgstr "Generator Preferences"
+
+msgid "TAB_LIST_EDITOR"
+msgstr "List Editor"
+
+msgid "TAB_SAVE"
+msgstr "Save"
+
+msgid "TAB_ABOUT"
+msgstr "About"
+
+
+# - LabelFrame Labels -
+msgid "LBLFRM_PREFERENECES"
+msgstr "Preferences"
+
+msgid "LBLFRM_FONT_PREVIEW"
+msgstr "Font Preview"
+
+msgid "LBLFRM_COLOR_SELECTION"
+msgstr "Color Selection"
+
+msgid "LBLFRM_CONFIG_PREVIEW"
+msgstr "Configuration Preview"
+
+msgid "LBLFRM_LIST_CONFIG_PREVIEW"
+msgstr "List Configuraion Preview"
+
+
+# — Preferences Labels —
+msgid "LBL_INTERFACE_LANGUAGE"
+msgstr "Interface Language"
+
+msgid "LBL_APPLICATION_THEME"
+msgstr "Application Theme"
+
+msgid "LBL_ALWAYS_ON_TOP"
+msgstr "Always on top"
+
+msgid "LBL_LOG_TO_FILE"
+msgstr "Log to file"
+
+msgid "LBL_ENABLE_SOUND"
+msgstr "Enable Sound"
+
+msgid "LBL_SOUND_FILE"
+msgstr "Sound File"
+
+msgid "LBL_FONT_FACE"
+msgstr "Font Face"
+
+msgid "LBL_FONT_SIZE"
+msgstr "Font Size"
+
+msgid "LBL_RANDOM_COLORS"
+msgstr "Random Colours"
+
+
+# — Actions —
+msgid "ACTION_ADD"
+msgstr "Add"
+
+msgid "ACTION_REMOVE"
+msgstr "Remove"
+
+msgid "ACTION_DECREMENT"
+msgstr "-"
+
+msgid "ACTION_INCREMENT"
+msgstr "+"
+
+msgid "ACTION_SAVE_CONFIG"
+msgstr "Save configuration..."
+
+msgid "ACTION_REVERT_CHANGES"
+msgstr "Revert changes..."
+
+msgid "ACTION_VIEW_GH_PROJECT"
+msgstr "View project on GitHub"
+
+
+# — Colour Selection —
+msgid "LBL_COLOUR_SELECTION"
+msgstr "Colour Selection"
+
+msgid "LBL_RED_CHANNEL"
+msgstr "R"
+
+msgid "LBL_GREEN_CHANNEL"
+msgstr "G"
+
+msgid "LBL_BLUE_CHANNEL"
+msgstr "B"
+
+msgid "LBL_HEX"
+msgstr "Hex"
+
+msgid "TXT_SAMPLE"
+msgstr "Sample"

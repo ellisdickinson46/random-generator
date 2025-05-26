@@ -56,7 +56,7 @@ class ConfigurationUtility(BaseTkWindow):
 
         # Interface Variables
         vars_to_define = [
-            ("_language", tk.StringVar(), [self.update_json_previews]),
+            ("_language", tk.StringVar(), [self.update_json_previews, self.change_ui_lang]),
             ("_theme", tk.StringVar(), [self.update_json_previews]),
             ("_enable_always_on_top", tk.BooleanVar(), [self.update_json_previews]),
             ("_enable_log_to_file", tk.BooleanVar(), [self.update_json_previews]),
@@ -85,6 +85,10 @@ class ConfigurationUtility(BaseTkWindow):
                     getattr(self, var_name).trace_add("write", callback=lambda *_, cb=callback: cb())
 
         self.mainloop()
+
+    def change_ui_lang(self):
+        newlang = self._language_ctrl.get_backend_value()
+        self.locale_manager.load_locale(newlang)
 
 
     def get_available_sounds(self) -> list:
@@ -244,7 +248,7 @@ class ConfigurationUtility(BaseTkWindow):
             ("_about_tab", self.locale_manager.register_ui("TAB_ABOUT")),
         ]
         for _, (tab_attr_name, tab_textvar) in enumerate(tabs):
-            setattr(self, tab_attr_name, tk.Frame(self._tab_control))
+            setattr(self, tab_attr_name, ttk.Frame(self._tab_control))
             self._tab_control.add(
                 getattr(self, tab_attr_name), textvariable=tab_textvar
             )
@@ -259,18 +263,18 @@ class ConfigurationUtility(BaseTkWindow):
         self._about_tab_frm = ttk.Frame(self._about_tab)
         self._about_tab_frm.place(anchor="c", relx=.5, rely=.4)
 
-        about_appicon = self.app_icon.subsample(3, 3)
+        self.about_appicon = self.app_icon.subsample(3, 3)
         labels = [
-            ("_app_icon_lbl", "", {"image": about_appicon}),
+            ("_app_icon_lbl", "", {"image": self.about_appicon}),
             ("_about_name", PROJECT_TITLE, {"font": ("TkDefaultFont", 25, "bold")}),
             ("_about_appver", f"Generator Version: {APP_VERSIONS.get('generator', 'GENERATOR_VERSION')}", {}),
             ("_about_confver", f"Editor Version: {APP_VERSIONS.get('editor', 'EDITOR_VERSION')}", {})
         ]
         for _, (lbl_attr_name, text, options) in enumerate(labels):
-            setattr(self, lbl_attr_name, ttk.Label(
+            setattr(self, lbl_attr_name, tk.Label(
                 self._about_tab_frm, text=text, **options
             ))
-            getattr(self, lbl_attr_name).pack(pady=2)
+            getattr(self, lbl_attr_name).pack()
 
         self._github_btn = ttk.Button(
             self._about_tab_frm, text="View the project on GitHub",
@@ -392,17 +396,17 @@ class ConfigurationUtility(BaseTkWindow):
         # Define save controls
         save_controls = [
             (
-                "save_btn",
+                "save_btn", 
                 ttk.Button, {
                     "style": "Accent.TButton",
                     "command": lambda *_: self.save_configuration(),
-                    "textvariable": self.locale_manager.register_ui("ACTION_SAVE_CONFIG")
+                    "textvariable": self.locale_manager.register_ui("ACTION_SAVE_CONFIG"),
                 }
             ),
             (
                 "save_status_lbl",
                 ttk.Label, {
-                    "text": "Check your configuration options before saving!" 
+                    "text": "Check your configuration options before saving!"
                 }
             )
         ]
@@ -412,18 +416,18 @@ class ConfigurationUtility(BaseTkWindow):
 
         # Define interface section containers
         preview_containers = [
-            ("config_preview", "Configuration Preview", 1, {
+            ("config_preview", self.locale_manager.register_ui("LBLFRM_CONFIG_PREVIEW"), 1, {
                 "row": 1, "column": 0, "sticky": "nesw",
                 "padx": 5, "pady": 5
             }),
-            ("list_preview", "List File Preview", 1, {
+            ("list_preview", self.locale_manager.register_ui("LBLFRM_LIST_CONFIG_PREVIEW"), 1, {
                 "row": 1, "column": 1, "sticky": "nesw",
                 "padx": 5, "pady": 5
             })
         ]
         for i, (container_name, text, num_of_columns, grid_options) in enumerate(preview_containers):
-            setattr(self, f"_{container_name}_container", ttk.LabelFrame(
-                self._save_tab, text=f" {text} "
+            setattr(self, f"_{container_name}_container", DynamicLabelframe(
+                self._save_tab, textvariable=text
             ))
             getattr(self, f"_{container_name}_container").grid(**grid_options)
             for x in range(num_of_columns):

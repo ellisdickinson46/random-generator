@@ -54,9 +54,11 @@ class BaseDialog(tk.Toplevel):
         if hasattr(parent, 'config') and hasattr(parent.config, 'app_theme'):
             style_customisations = [('Treeview', {"rowheight": 35})]
             self._theme_helper = ThemeHelper(
-                self, parent.config.app_theme, customisations=style_customisations
+                self,
+                parent.config.app_theme,
+                custom_styles=style_customisations,
             )
-            self._theme_helper.apply_theme()
+            self._theme_helper.start()
         else:
             self._theme_helper = None
 
@@ -103,7 +105,7 @@ class BaseDialog(tk.Toplevel):
         else:
             self.return_value = None if action == DialogAction.CANCEL else action
         if self._theme_helper:
-            self._theme_helper.stop_listener()
+            self._theme_helper.stop()
         self.destroy()
 
 
@@ -205,12 +207,13 @@ class DemoApp(BaseTkWindow):
         super().__init__(
             app_size=(100, 100),
             theme="auto",
-            logger_name="DemoApplication"
+            logger_name="DemoApplication",
+            theme_flags=["matched_frame", "matched_button"]
         )
         self.title("Dialog Demo App")
         self.geometry("400x200")
 
-        btn_frame = ttk.Frame(self)
+        btn_frame = ttk.Frame(self, style="MatchedBg.TFrame")
         btn_frame.pack(
             expand=True,
             pady=((self._titlebar_height, 0) if hasattr(self, "_titlebar_height") else 0)
@@ -219,14 +222,16 @@ class DemoApp(BaseTkWindow):
         ttk.Button(
             btn_frame,
             text="Show Message",
-            command=self.show_message
-        ).grid(row=0, column=0, padx=10, pady=10)
+            command=self.show_message,
+            style="MatchedBg.TButton"
+        ).grid(row=0, column=0, padx=(0, 5))
 
         ttk.Button(
             btn_frame,
             text="Show Choice",
-            command=self.show_choice
-        ).grid(row=0, column=1, padx=10, pady=10)
+            command=self.show_choice,
+            style="MatchedBg.TButton"
+        ).grid(row=0, column=1, padx=(5, 0))
 
     def show_message(self):
         dlg = MessageDialog(

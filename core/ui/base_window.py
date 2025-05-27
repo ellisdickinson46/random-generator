@@ -19,7 +19,7 @@ class BaseTkWindow(tk.Tk):
         return builtins._
 
     def __init__(self, app_id=APP_ID, app_icon=None, app_size=(800, 600), app_title="App Window",
-                 theme="light", topmost=False, logger_name="app", log_to_file=False):
+                 theme="light", topmost=False, logger_name="app", log_to_file=False, theme_flags=None):
         super().__init__()
 
         # Define logger instance
@@ -32,6 +32,7 @@ class BaseTkWindow(tk.Tk):
         self.app_size = app_size
         self.app_title = app_title
         self.topmost = topmost
+        self.theme_flags = theme_flags
         self.style = ttk.Style()
 
         # Set Window Icon
@@ -83,14 +84,19 @@ class BaseTkWindow(tk.Tk):
     def _apply_theme(self):
         """Apply a consistent theme across platforms."""
         style_customisations = [('Treeview', {"rowheight": 25})]
-        self.theme_helper = ThemeHelper(self, self.theme, customisations=style_customisations)
-        self.theme_helper.apply_theme()
+        self.theme_helper = ThemeHelper(
+            self, self.theme,
+            custom_styles=style_customisations,
+            flags=self.theme_flags,
+            logger=self.logger
+        )
+        self.theme_helper.start()
 
     def _on_closing(self, *_):
         """Default close handler."""
         self.logger.info("Termination signal received.")
         if hasattr(self, "theme_helper"):
-            self.theme_helper.stop_listener()
+            self.theme_helper.stop()
         self.logger.info("Exiting...")
         self.destroy()
 

@@ -22,7 +22,8 @@ class RandomGenerator(BaseTkWindow):
             theme=config.app_theme,
             topmost=config.enable_always_on_top,
             logger_name="generator",
-            log_to_file=config.enable_log_to_file
+            log_to_file=config.enable_log_to_file,
+            theme_flags="disable_auto_titlebar"
         )
         self.config = config
         self.locale_manager = LocaleManager(
@@ -45,7 +46,7 @@ class RandomGenerator(BaseTkWindow):
         ))
 
         # Configure additional styles
-        self.style.configure('MatchedBg.TButton')
+        self.bind("<<ThemeChanged>>", lambda _: self.update_styles(self.cget("background")))
 
         self._define_interface()
         self.mainloop()
@@ -89,7 +90,10 @@ class RandomGenerator(BaseTkWindow):
     def _define_interface(self):
         self.logger.debug("Creating interface...")
         self._interface_container = tk.Frame(self)
-        self._item_lbl = tk.Label(self._interface_container, text="", anchor="w", font=(self.config.app_fontface, self.config.app_fontsize))
+        self._item_lbl = ttk.Label(
+            self._interface_container, text="", anchor="w",
+            font=(self.config.app_fontface, self.config.app_fontsize)
+        )
 
         # Define buttons in the format (text, attribute name, command, expand)
         buttons = [
@@ -182,8 +186,11 @@ class RandomGenerator(BaseTkWindow):
             element.configure(background=new_col)
 
         self._item_lbl.configure(foreground=new_txt_col)
+        self.update_styles(new_col)
+
+    def update_styles(self, new_col):
         self.style.configure("MatchedBg.TButton", background=new_col)
-        self.theme_helper.apply_title_bar_theme(override_color=new_col)
+        self.theme_helper._apply_titlebar(override_color=new_col)
 
 
 if __name__ == "__main__":

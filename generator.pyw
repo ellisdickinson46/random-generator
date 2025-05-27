@@ -8,7 +8,7 @@ from core.__info__ import (
 )
 from core.configuration import GeneratorAppSettings
 from core.data import JSONHandler
-from core.ui.widgets import TTKDialog, TTKDialogType, TTKDialogAction
+from core.ui.widgets.dialogs import ChoiceDialog, DialogAction
 from core.ui.wcag_contrast import determine_text_color
 from core.ui.base_window import BaseTkWindow
 from core.locale_manager import LocaleManager
@@ -38,7 +38,6 @@ class RandomGenerator(BaseTkWindow):
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
-        self.style = ttk.Style()
 
         # Add callback function to update the window title when the list value is changed
         self.loaded_list_name.trace_add('write', callback=lambda a,b,c: self.title(
@@ -57,17 +56,17 @@ class RandomGenerator(BaseTkWindow):
         available_lists = self._list_data.json_data.keys()
 
         self.attributes('-topmost', False)
-        dialog = TTKDialog(
-            self, TTKDialogType.SELECT,
-            diag_title=self._("Choose an option"),
-            diag_message=f"{self._('Choose an option')}:",
-            diag_choices=available_lists,
-            diag_size=(350, 350),
-            diag_buttons=[
-                (self._("Cancel"), TTKDialogAction.CANCEL),
-                (self._("OK"), TTKDialogAction.OK)
+        dialog = ChoiceDialog(
+            self,
+            title=self._("Choose an option"),
+            message=f"{self._('Choose an option')}:",
+            choices=available_lists,
+            size=(350, 350),
+            buttons=[
+                (self._("Cancel"), DialogAction.CANCEL),
+                (self._("OK"), DialogAction.OK)
             ],
-            primary_action=TTKDialogAction.OK
+            primary_action=DialogAction.OK
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)

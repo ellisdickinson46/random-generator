@@ -22,6 +22,17 @@
             "justMyCode": true,
             "redirectOutput": true,
             "internalConsoleOptions": "openOnFirstSessionStart"
+        },
+        {
+            "name": "Python: Dialogs Demo",
+            "preLaunchTask": "Clear terminal",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "core.ui.widgets.dialogs",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "redirectOutput": true,
+            "internalConsoleOptions": "openOnFirstSessionStart"
         }
     ]
 }

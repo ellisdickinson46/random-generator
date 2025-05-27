@@ -2,165 +2,251 @@ from __future__ import annotations
 from enum import Enum
 import tkinter as tk
 from tkinter import ttk
-from typing import List
+from typing import List, Optional
 
+from core.ui.base_window import BaseTkWindow
 from core.ui.apply_theme import ThemeHelper
+from core.ui.nswindow_style import set_nswindow_style
 
-class TTKDialogAction(Enum):
+class DialogAction(Enum):
     OK = "ok"
     CANCEL = "cancel"
 
-class TTKDialogType(Enum):
-    MESSAGE = "message"
-    SELECT = "select"
 
-class TTKDialog(tk.Toplevel):
-    def __init__(self, parent, diag_type: TTKDialogType, diag_size: tuple[int, int], diag_buttons: List[tuple[str, TTKDialogAction]],
-             diag_title="", diag_message="", diag_choices=None, primary_action=TTKDialogAction):
+class BaseDialog(tk.Toplevel):
+    def __init__(
+        self, parent: tk.Widget, title: str, size: tuple[int, int],
+        buttons: list[tuple[str, DialogAction]], primary_action: Optional[DialogAction] = None,
+    ):
         super().__init__(parent)
         self.lift()
 
-        if not isinstance(diag_type, TTKDialogType):
-            raise TypeError(f"Invalid dialog type: {diag_type}. Must be a TTKDialogType.")
-
-        for _, action in diag_buttons:
-            if not isinstance(action, TTKDialogAction):
-                raise TypeError(f"Invalid dialog action: {action}. Must be a TTKDialogAction.")
-
-        if primary_action and not isinstance(primary_action, TTKDialogAction):
-            raise TypeError(f"Invalid primary button action: {primary_action}. Must be a TTKDialogAction.")
-
-        self.diag_type = diag_type
-        self.diag_title = diag_title
-        self.diag_message = diag_message
-        self.diag_choices = diag_choices or []
-        self.diag_buttons = diag_buttons
-        self.primary_action = primary_action
-        self.return_value = ""
-
-        # Configure window options
+        # Window setup
+        self.title(title)
+        self.geometry(f"{size[0]}x{size[1]}")
         self.resizable(False, False)
-        self.geometry(f"{diag_size[0]}x{diag_size[1]}")
-        self.title(self.diag_title)
+        self.minsize(260, 200)
         self.attributes('-topmost', True)
-        self.protocol("WM_DELETE_WINDOW", self._close_dialog)
+        self.protocol("WM_DELETE_WINDOW", lambda: self._process_action(DialogAction.CANCEL))
+        self.style = ttk.Style()
+        
+        self.attributes("-alpha", 0.0)
+        set_nswindow_style(self, size, title)
+        self.attributes("-alpha", 1.0)
 
-        diag_type_map = {
-            TTKDialogType.MESSAGE: self._build_msg_dialog,
-            TTKDialogType.SELECT: self._build_choice_dialog
-        }
-        if diag_type in diag_type_map:
-            diag_type_map[diag_type]()
+        # Validate actions
+        for _, action in buttons:
+            if not isinstance(action, DialogAction):
+                raise TypeError(f"Invalid dialog action: {action}. Must be a DialogAction.")
+        if primary_action and not isinstance(primary_action, DialogAction):
+            raise TypeError(f"Invalid primary action: {primary_action}. Must be a DialogAction.")
 
-        # Apply theme if parent has config and app_theme
+        self.buttons = buttons
+        self.primary_action = primary_action
+        self.return_value: str | DialogAction | None = None
+
+        # Theme
         if hasattr(parent, 'config') and hasattr(parent.config, 'app_theme'):
             style_customisations = [('Treeview', {"rowheight": 35})]
-            self._theme_helper = ThemeHelper(self, parent.config.app_theme, customisations=style_customisations)
+            self._theme_helper = ThemeHelper(
+                self, parent.config.app_theme, customisations=style_customisations
+            )
             self._theme_helper.apply_theme()
         else:
             self._theme_helper = None
 
-        # Set modal behavior
+        # Content frame
+        self.content_frame = ttk.Frame(self)
+        self.content_frame.pack(
+            expand=True, fill="both", padx=10,
+            pady=((self._titlebar_height + 10, 0) if hasattr(self, "_titlebar_height") else 10)
+        )
+
+        # Build dialog-specific content
+        self._build_content()
+
+        # Create buttons (layout delegated to subclass)
+        self.button_frame = ttk.Frame(self)
+        self._create_buttons()
+
+        # Modal
         self.grab_set()
         self.focus()
 
+    def _build_content(self) -> None:
+        """Override to populate content_frame before buttons."""
+        raise NotImplementedError
 
-    def _build_choice_dialog(self):
-        """Function to build the interface for a selection dialog box"""
-        # Define static interface elements
-        self._content_title = ttk.Label(self, text=self.diag_message, anchor="w")
-        self._choices_frm = tk.Frame(self)
-        self._choices_scrl = ttk.Scrollbar(self._choices_frm)
-        self._choices_view = ttk.Treeview(self._choices_frm, show="tree", selectmode="browse", yscrollcommand=self._choices_scrl.set)
-        self._choices_scrl.configure(command=self._choices_view.yview)
-        self._button_frm = ttk.Frame(self)
-
-        # Add items to treeview
-        for choice in self.diag_choices:
-            self._choices_view.insert("", "end", text=choice)
-
-        # Create buttons
-        for i, (text, action) in enumerate(self.diag_buttons):
-            dynamic_btn = ttk.Button(
-                self._button_frm, text=text,
-                command=lambda a=action: self._process_choice(a)
+    def _create_buttons(self) -> None:
+        """Create buttons in button_frame; subclass should layout button_frame."""
+        for idx, (text, action) in enumerate(self.buttons):
+            btn = ttk.Button(
+                self.button_frame,
+                text=text,
+                command=lambda a=action: self._process_action(a)
             )
             if action == self.primary_action:
-                dynamic_btn.configure(style="Accent.TButton")
+                btn.configure(style="Accent.TButton")
+            btn.grid(row=0, column=idx, padx=5, ipadx=10, sticky="NEWS")
+            self.button_frame.grid_columnconfigure(idx, weight=1)
 
-            dynamic_btn.grid(row=0, column=i+1, padx=5, ipadx=10, sticky="NEWS")
-            self._button_frm.grid_columnconfigure(i+1, uniform="buttons")
-        self._button_frm.grid_columnconfigure(0, weight=1)
-
-        # Layout configuration
-        self._content_title.grid(row=0, column=0, sticky="nesw", padx=10, pady=10)
-        self._choices_view.pack(side="left", fill="both", expand=True)
-        self._choices_scrl.pack(side="right", fill="y")
-        self._choices_frm.grid(row=1, column=0, sticky="nesw", padx=10, pady=5)
-        self._button_frm.grid(row=2, column=0, sticky="esw", padx=10, pady=10)
-
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-
-    def _build_msg_dialog(self):
-        """Build interface for a message dialog."""
-        self._content_frm = ttk.Frame(self)
-
-        self._content_title = ttk.Label(self._content_frm, text=self.diag_title, anchor="w", font=('TkDefaultFont', 16))
-        self._content_body = ttk.Label(self._content_frm, text=self.diag_message, anchor="nw", wraplength=300)
-
-        self._button_frm = ttk.Frame(self._content_frm)
-        for i, (text, action) in enumerate(self.diag_buttons):
-            dynamic_btn = ttk.Button(
-                self._button_frm, text=text,
-                command=lambda a=action: self._process_choice(a)
-            )
-            dynamic_btn.grid(row=0, column=i, padx=5, ipadx=10, sticky="NEWS")
-            self._button_frm.grid_columnconfigure(i, weight=1)
-
-        self._content_title.pack(fill="x", pady=(0, 5))
-        self._content_body.pack(fill="x", pady=(0, 10))
-        self._button_frm.pack(fill="x")
-
-        self._content_frm.pack(expand=True, fill="both", padx=10, pady=10)
-
-    def _process_choice(self, button_pressed):
-        if self.diag_type == TTKDialogType.SELECT:
-            if button_pressed == TTKDialogAction.CANCEL:
-                self.return_value = ""
-            else:
-                focused_item = self._choices_view.focus()
-                self.return_value = self._choices_view.item(focused_item)["text"]
+    def _process_action(self, action: DialogAction) -> None:
+        """Set return_value and destroy."""
+        if isinstance(self, ChoiceDialog) and action == DialogAction.OK:
+            # Handled in subclass
+            pass
         else:
-            self.return_value = button_pressed
-        self._close_dialog()
-
-    def _close_dialog(self):
+            self.return_value = None if action == DialogAction.CANCEL else action
         if self._theme_helper:
             self._theme_helper.stop_listener()
         self.destroy()
 
 
-class DemoApp(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Main Application")
-        self.geometry("500x400")
+class MessageDialog(BaseDialog):
+    def __init__(
+        self, parent: tk.Widget, title: str, message: str, size: tuple[int, int],
+        buttons: list[tuple[str, DialogAction]], primary_action: Optional[DialogAction] = None,
+    ):
+        self.message = message
+        super().__init__(parent, title, size, buttons, primary_action)
+        # Layout buttons at bottom using pack
+        self.button_frame.pack(fill="x", padx=5, pady=(0, 10))
 
-        ttk.Button(self, text="Open Dialog", command=self.open_dialog).pack(pady=20)
+    def _build_content(self) -> None:
+        ttk.Label(
+            self.content_frame,
+            text=self.title(),
+            anchor="w",
+            font=("TkDefaultFont", 20, "bold")
+        ).pack(fill="x", pady=(0, 5))
 
-    def open_dialog(self):
-        dialog = TTKDialog(
-            self, TTKDialog.TYPE_SELECT,
-            diag_size=(350, 350),
-            diag_title="Choose an option",
-            diag_message="Choose an option",
-            diag_choices=['test1', 'test2'],
-            diag_buttons=[("Cancel", TTKDialog.ACTION_CANCEL), ("OK", TTKDialog.ACTION_OK)]
+        ttk.Label(
+            self.content_frame,
+            text=self.message,
+            anchor="nw",
+            wraplength=300
+        ).pack(fill="x", pady=(0, 10))
+
+    def _process_action(self, action: DialogAction) -> None:
+        self.return_value = action
+        super()._process_action(action)
+
+
+class ChoiceDialog(BaseDialog):
+    def __init__(
+        self, parent: tk.Widget, title: str, message: str, choices: list[str], size: tuple[int, int], 
+        buttons: list[tuple[str, DialogAction]], primary_action: Optional[DialogAction] = None,
+    ):
+        self.message = message
+        self.choices = choices
+        super().__init__(parent, title, size, buttons, primary_action)
+
+        # Layout content_frame children with grid; layout buttons via grid
+        self.content_frame.pack_forget()
+        self.content_frame = ttk.Frame(self)
+        self.content_frame.grid(
+            row=0, column=0, sticky="nsew", padx=10,
+            pady=((self._titlebar_height + 10, 10) if hasattr(self, "_titlebar_height") else 10)
         )
-        dialog.wait_window()
-        print(dialog.return_value)
 
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self._build_content()
+        self._create_buttons()
+        self.button_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 10))
+
+    def _build_content(self) -> None:
+        ttk.Label(
+            self.content_frame,
+            text=self.message,
+            anchor="w"
+        ).grid(row=0, column=0, sticky="w", pady=(0, 5))
+
+        tree_frame = ttk.Frame(self.content_frame)
+        tree_frame.grid(row=1, column=0, sticky="nsew")
+
+        tree = ttk.Treeview(
+            tree_frame,
+            show="tree",
+            selectmode="browse",
+            height=8
+        )
+        scrollbar = ttk.Scrollbar(
+            tree_frame,
+            orient="vertical",
+            command=tree.yview
+        )
+
+        tree.configure(yscrollcommand=scrollbar.set)
+        for choice in self.choices:
+            tree.insert("", "end", text=choice)
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        self._tree = tree
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(1, weight=1)
+
+    def _process_action(self, action: DialogAction) -> None:
+        if action == DialogAction.CANCEL:
+            self.return_value = None
+        else:
+            selected = self._tree.focus()
+            self.return_value = self._tree.item(selected, "text") or None
+        super()._process_action(action)
+
+class DemoApp(BaseTkWindow):
+    def __init__(self):
+        super().__init__(
+            app_size=(100, 100),
+            theme="auto",
+            logger_name="DemoApplication"
+        )
+        self.title("Dialog Demo App")
+        self.geometry("400x200")
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(
+            expand=True,
+            pady=((self._titlebar_height, 0) if hasattr(self, "_titlebar_height") else 0)
+        )
+
+        ttk.Button(
+            btn_frame,
+            text="Show Message",
+            command=self.show_message
+        ).grid(row=0, column=0, padx=10, pady=10)
+
+        ttk.Button(
+            btn_frame,
+            text="Show Choice",
+            command=self.show_choice
+        ).grid(row=0, column=1, padx=10, pady=10)
+
+    def show_message(self):
+        dlg = MessageDialog(
+            self,
+            title="Hello",
+            message="This is a message dialog.",
+            size=(400, 100),
+            buttons=[("OK", DialogAction.OK)],
+            primary_action=DialogAction.OK
+        )
+        self.wait_window(dlg)
+        self.logger.info(f"MessageDialog returned: {dlg.return_value}")
+
+    def show_choice(self):
+        dlg = ChoiceDialog(
+            self,
+            title="Select Option",
+            message="Please choose an item:",
+            choices=["Alpha", "Beta", "Gamma"],
+            size=(350, 300),
+            buttons=[("Cancel", DialogAction.CANCEL), ("OK", DialogAction.OK)],
+            primary_action=DialogAction.OK
+        )
+        self.wait_window(dlg)
+        self.logger.info(f"ChoiceDialog returned: {dlg.return_value}")
 
 if __name__ == '__main__':
     app = DemoApp()

@@ -1,4 +1,3 @@
-from .dialogs import TTKDialog, TTKDialogType, TTKDialogAction
 from .dynamic_labelframe import DynamicLabelframe
 from .dynamic_notebook import DynamicNotebook
 from .limiter import Limiter
@@ -7,8 +6,6 @@ from .ro_text_w_var import ReadOnlyTextWithVar
 from .scrollable_listbox import ScrollableListbox
 
 __all__ = [
-    "TTKDialog",
-    "TTKDialogType",
     "DynamicNotebook",
     "DynamicLabelframe",
     "Limiter",

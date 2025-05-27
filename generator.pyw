@@ -183,6 +183,7 @@ class RandomGenerator(BaseTkWindow):
 
         self._item_lbl.configure(foreground=new_txt_col)
         self.style.configure("MatchedBg.TButton", background=new_col)
+        self.theme_helper.apply_title_bar_theme(override_color=new_col)
 
 
 if __name__ == "__main__":

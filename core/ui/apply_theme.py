@@ -53,6 +53,13 @@ class ThemeHelper:
             "dialog_light": "#fafafa"
         }
 
+        if isinstance(self.root, tk.Tk):
+            if new_col := titlebar_colours.get(self.current_theme()):
+                self.root.configure(background=new_col)
+        elif isinstance(self.root, tk.Toplevel):
+            if new_col := titlebar_colours.get(f"dialog_{self.current_theme()}"):
+                self.root.configure(background=new_col)
+
         if platform.system() == "Windows":
             from libs import pywinstyles
 
@@ -61,8 +68,6 @@ class ThemeHelper:
                 # Windows 11 Method
                 if override_color is not None:
                     new_col = override_color
-                else:
-                    new_col = titlebar_colours.get(self.current_theme(), "red")
 
                 hwnd = ctypes.windll.user32.FindWindowW(None, self.root.title())
                 pywinstyles.change_header_color(hwnd, color=new_col)
@@ -77,14 +82,6 @@ class ThemeHelper:
                 # (it doesn't update instantly like on Windows 11)
                 self.root.wm_attributes("-alpha", 0.99)
                 self.root.wm_attributes("-alpha", 1)
-
-        if isinstance(self.root, tk.Tk):
-            if new_col := titlebar_colours.get(self.current_theme()):
-                print('setting', new_col)
-                self.root.configure(background=new_col)
-        elif isinstance(self.root, tk.Toplevel):
-            if new_col := titlebar_colours.get(f"dialog_{self.current_theme()}"):
-                self.root.configure(background=new_col)
 
 
 

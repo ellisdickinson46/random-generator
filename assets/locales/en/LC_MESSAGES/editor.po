@@ -96,13 +96,13 @@ msgstr "View project on GitHub"
 msgid "LBL_COLOUR_SELECTION"
 msgstr "Colour Selection"
 
-msgid "LBL_RED_CHANNEL"
+msgid "LBL_R_CHANNEL"
 msgstr "R"
 
-msgid "LBL_GREEN_CHANNEL"
+msgid "LBL_G_CHANNEL"
 msgstr "G"
 
-msgid "LBL_BLUE_CHANNEL"
+msgid "LBL_B_CHANNEL"
 msgstr "B"
 
 msgid "LBL_HEX"

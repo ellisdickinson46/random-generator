@@ -544,7 +544,7 @@ class ConfigurationUtility(BaseTkWindow):
         
         for i, color in enumerate(["r", "g", "b"]):
             setattr(self, f"_label_{color}", ttk.Label(
-                self._colselect_frm, text=color.upper(), anchor="e")
+                self._colselect_frm, textvariable=self.locale_manager.register_ui(f"LBL_{color.upper()}_CHANNEL"), anchor="e")
             )
             getattr(self, f"_label_{color}").grid(row=i, column=0, sticky="ew", padx=10)
             setattr(self, f"_slider_{color}", Limiter(
@@ -567,7 +567,7 @@ class ConfigurationUtility(BaseTkWindow):
             getattr(self, f"_plus_{color}").grid(row=i, column=4, sticky="ew")
             self._colselect_frm.grid_rowconfigure(i, minsize=35)
 
-        self._hexentry_lbl = ttk.Label(self._colselect_frm, text="Hex")
+        self._hexentry_lbl = ttk.Label(self._colselect_frm, textvariable=self.locale_manager.register_ui("LBL_HEX"))
         self._hexentry_lbl.grid(row=3, column=0, sticky="ew", padx=10)
         self._hexentry = ttk.Entry(self._colselect_frm)
         self._hexentry.insert(0, "#000000")
@@ -579,7 +579,9 @@ class ConfigurationUtility(BaseTkWindow):
         self._colselect_frm.grid_rowconfigure(0, weight=1)
 
         # Define font preview
-        self._font_preview_lbl = ttk.Label(self._font_preview_container, text="Sample", anchor="nw")
+        self._font_preview_lbl = ttk.Label(
+            self._font_preview_container, anchor="nw",
+            textvariable=self.locale_manager.register_ui("TXT_SAMPLE"))
         self._font_preview_lbl.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Tab Grid Settings

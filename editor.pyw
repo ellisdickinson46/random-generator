@@ -239,7 +239,9 @@ class ConfigurationUtility(BaseTkWindow):
 
     def _define_interface(self):
         self._tab_control = DynamicNotebook(self, takefocus=0)
-        self._tab_control.pack(expand=True, fill="both")
+        self._tab_control.pack(
+            expand=True, fill="both",
+            pady=((self._titlebar_height, 0) if hasattr(self, "_titlebar_height") else 0))
 
         tabs = [
             ("_preference_tab", self.locale_manager.register_ui("TAB_GENERATOR_PREFERENCES")),

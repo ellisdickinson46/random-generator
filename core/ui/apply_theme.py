@@ -46,17 +46,17 @@ class ThemeHelper:
         self.root.update_idletasks()
 
     def apply_title_bar_theme(self, override_color=None):
+        titlebar_colours = {
+            "dark" : "#2f2f2f",
+            "light": "#e7e7e7",
+            "dialog_dark": "#1c1c1c",
+            "dialog_light": "#fafafa"
+        }
+
         if platform.system() == "Windows":
             from libs import pywinstyles
 
             winver = sys.getwindowsversion()
-            titlebar_colours = {
-                "dark" : "#2f2f2f",
-                "light": "#e7e7e7",
-                "dialog_dark": "#1c1c1c",
-                "dialog_light": "#fafafa"
-            }
-
             if winver.major == 10 and winver.build >= 22000:
                 # Windows 11 Method
                 if override_color is not None:
@@ -77,6 +77,16 @@ class ThemeHelper:
                 # (it doesn't update instantly like on Windows 11)
                 self.root.wm_attributes("-alpha", 0.99)
                 self.root.wm_attributes("-alpha", 1)
+
+        if isinstance(self.root, tk.Tk):
+            if new_col := titlebar_colours.get(self.current_theme()):
+                print('setting', new_col)
+                self.root.configure(background=new_col)
+        elif isinstance(self.root, tk.Toplevel):
+            if new_col := titlebar_colours.get(f"dialog_{self.current_theme()}"):
+                self.root.configure(background=new_col)
+
+
 
     def stop_listener(self):
         if hasattr(self, "listener"):

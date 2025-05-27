@@ -1,14 +1,15 @@
+import ctypes
 import builtins
 import os
 import platform
 import signal
 import tkinter as tk
 from tkinter import ttk
-import ctypes
 
 from core.__info__ import APP_ID, ICONS_DIR, LOG_LEVEL
 from core.logger import init_logger
 from core.ui.apply_theme import ThemeHelper
+from core.ui.nswindow_style import set_nswindow_style
 
 
 class BaseTkWindow(tk.Tk):
@@ -31,6 +32,7 @@ class BaseTkWindow(tk.Tk):
         self.app_size = app_size
         self.app_title = app_title
         self.topmost = topmost
+        self.style = ttk.Style()
 
         # Set Window Icon
         if app_icon:
@@ -47,11 +49,19 @@ class BaseTkWindow(tk.Tk):
     def _configure_window(self):
         """Apply common Tk window properties."""
         self.logger.debug("Setting window properties...")
-        self.title(self.app_title)
         self.geometry('x'.join(str(x) for x in self.app_size))
+        self.title(self.app_title)
         self.attributes('-topmost', self.topmost)
         self.resizable(False, False)
         self.bind("<Button-1>", self.clear_focus)
+
+        if platform.system() == "Darwin":
+            self.attributes("-alpha", 0.0)
+            try:
+                set_nswindow_style(self, self.app_size, self.app_title)
+            except (RuntimeError, ImportError):
+                self.logger.exception("Unable to set NSWindow properties")
+            self.attributes("-alpha", 1.0)
 
         # Define the App ID for the Windows Shell Environment
         # (This allows the display of app icons in the taskbar and window grouping across scripts)

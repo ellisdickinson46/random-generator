@@ -110,7 +110,10 @@ class RandomGenerator(BaseTkWindow):
                 self._interface_container.grid_columnconfigure(i, weight=1, uniform="button_controls")
 
         self._interface_container.pack(side="left", fill="both", expand=True, ipadx=20)
-        self._item_lbl.grid(row=0, column=0, columnspan=3, sticky="news", padx=5)
+        self._item_lbl.grid(
+            row=0, column=0, columnspan=3, sticky="news", padx=5,
+            pady=((self._titlebar_height, 0) if hasattr(self, "_titlebar_height") else 0)
+        )
         self._interface_container.grid_rowconfigure(0, weight=1)
         self._random_bgcols()
 

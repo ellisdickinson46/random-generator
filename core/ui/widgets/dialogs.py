@@ -1,8 +1,9 @@
 from __future__ import annotations
 from enum import Enum
+import platform
 import tkinter as tk
 from tkinter import ttk
-from typing import List, Optional
+from typing import Optional
 
 from core.ui.base_window import BaseTkWindow
 from core.ui.apply_theme import ThemeHelper
@@ -30,9 +31,13 @@ class BaseDialog(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", lambda: self._process_action(DialogAction.CANCEL))
         self.style = ttk.Style()
         
-        self.attributes("-alpha", 0.0)
-        set_nswindow_style(self, size, title)
-        self.attributes("-alpha", 1.0)
+        if platform.system() == "Darwin":
+            self.attributes("-alpha", 0.0)
+            try:
+                set_nswindow_style(self, size, title)
+            except (RuntimeError, ImportError):
+                self.logger.exception("Unable to set NSWindow properties")
+            self.attributes("-alpha", 1.0)
 
         # Validate actions
         for _, action in buttons:

@@ -170,13 +170,7 @@ class RandomGenerator(BaseTkWindow):
 
     def _random_bgcols(self):
         new_col = random.choice(self.config.random_cols)
-        new_txt_col = determine_text_color(
-            new_col,
-            dark_color=self.config.app_dark_text_col,
-            light_color=self.config.app_light_text_col
-        )
 
-        # Change background of elements
         elements_to_update = [
             self,
             self._interface_container,
@@ -185,12 +179,16 @@ class RandomGenerator(BaseTkWindow):
         for element in elements_to_update:
             element.configure(background=new_col)
 
-        self._item_lbl.configure(foreground=new_txt_col)
         self.update_styles(new_col)
 
     def update_styles(self, new_col):
         self.style.configure("MatchedBg.TButton", background=new_col)
         self.theme_helper._apply_titlebar(override_color=new_col)
+        self._item_lbl.configure(foreground=determine_text_color(
+            self.cget("background"),
+            dark_color=self.config.app_dark_text_col,
+            light_color=self.config.app_light_text_col
+        ))
 
 
 if __name__ == "__main__":

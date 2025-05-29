@@ -8,8 +8,8 @@ APP_ID = "com.bytefloater.random-generator.generator"
 
 # Application Versions
 APP_VERSIONS = {
-    "generator": "4.0",
-    "editor": "2.2"
+    "generator": "4.1",
+    "editor": "2.3"
 }
 
 # Logging Level

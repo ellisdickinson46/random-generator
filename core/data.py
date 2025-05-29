@@ -1,8 +1,11 @@
+from __future__ import annotations
 import asyncio
 import json
 import re
+from typing import Dict
 
-from _helpers import aiofiles
+from libs import aiofiles
+from core.errors import ValidationError
 
 
 
@@ -12,7 +15,7 @@ class JSONHandler:
         self.encoding = encoding
         self.json_data = self._run_sync(self._read_json())
 
-    async def _read_json(self) -> dict[str, any]:
+    async def _read_json(self) -> Dict[str, any]:
         try:
             async with aiofiles.open(self.file_name, "r", encoding=self.encoding) as json_file:
                 data = await json_file.read()
@@ -22,7 +25,7 @@ class JSONHandler:
         except json.JSONDecodeError as e:
             raise e
 
-    async def _write_json(self, data: dict[str, any]):
+    async def _write_json(self, data: Dict[str, any]):
         try:
             async with aiofiles.open(self.file_name, "w", encoding=self.encoding) as json_file:
                 await json_file.write(json.dumps(data, indent=4))
@@ -104,12 +107,6 @@ class JSONHandler:
             raise TypeError("New data must be a dictionary.")
         
         self.json_data = new_data
-
-
-class ValidationError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-        self.message = message
 
 
 class JSONValidator:
@@ -206,32 +203,3 @@ def custom_json_dump(data, **kwargs):
     # Handle indentation and format properly
     newline = '\n' if indent is not None else ''
     return f'{{{newline}' + f'{newline}'.join(result) + f'{newline}}}'
-
-
-def hex_to_rgb(hex_color):
-    # Regular expression to match valid hex color formats
-    pattern = r'^(#|0x)?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$'
-    
-    match = re.match(pattern, hex_color)
-    if not match:
-        return None
-    
-    hex_value = match.group(2)
-    
-    if len(hex_value) == 3:
-        # Expand shorthand hex to full form, e.g., "f00" -> "ff0000"
-        hex_value = ''.join(c * 2 for c in hex_value)
-    
-    try:
-        r = int(hex_value[0:2], 16)
-        g = int(hex_value[2:4], 16)
-        b = int(hex_value[4:6], 16)
-        return (r, g, b)
-    except ValueError:
-        return None
-
-def rgb_to_hex(r, g, b):
-    if not all(0 <= x <= 255 for x in (r, g, b)):
-        raise ValueError("RGB values must be between 0 and 255")
-    
-    return f'#{r:02x}{g:02x}{b:02x}'

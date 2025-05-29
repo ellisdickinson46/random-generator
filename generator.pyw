@@ -1,105 +1,55 @@
-import ctypes
-import gettext
-import os
-import platform
 import random
-import signal
 import threading
 import tkinter as tk
 from tkinter import ttk
 
-from _helpers.apply_theme import ThemeHelper
-from _helpers.configuration import GeneratorAppSettings
-from _helpers.dialog_boxes import TTKDialog, TTKDialogType, TTKDialogAction
-from _helpers.data import JSONHandler
-from _helpers.logger import init_logger
-from _helpers.playsound import playsound
-from _helpers.readability import determine_text_color
-from _helpers.polib import polib
-import __info__
+from core.__info__ import (
+    CONFIG_DIR, GENERATOR_SCHEMA, LOCALE_DIR, SOUNDS_DIR
+)
+from core.configuration import GeneratorAppSettings
+from core.data import JSONHandler
+from core.ui.widgets.dialogs import ChoiceDialog, DialogAction
+from core.ui.wcag_contrast import determine_text_color
+from core.ui.base_window import BaseTkWindow
+from core.locale_manager import LocaleManager
+from libs.playsound3 import playsound
 
-
-class RandomGenerator(tk.Tk):
+class RandomGenerator(BaseTkWindow):
     def __init__(self, config: GeneratorAppSettings):
-        tk.Tk.__init__(self)
+        super().__init__(
+            app_size=config.app_size,
+            app_icon="appicon.png",
+            theme=config.app_theme,
+            topmost=config.enable_always_on_top,
+            logger_name="generator",
+            log_to_file=config.enable_log_to_file,
+            theme_flags="disable_auto_titlebar"
+        )
         self.config = config
-        self.logger = init_logger("generator", "DEBUG", getattr(self.config, "enable_log_to_file", False))
-        self.logger.info("Launching Random Generator...")
-        self.translations = self.set_language(self.config.language)
-        self._ = self.translations.gettext
+        self.locale_manager = LocaleManager(
+            domain="generator",
+            localedir=LOCALE_DIR,
+            default_locale=self.config.language,
+            logger_instance=self.logger
+        )
 
-        self._list_data = JSONHandler(json_file=f"{__info__.CONFIG_DIR}/lists.json")
-        
-        tk_version = tuple(int(part) for part in str(tk.TkVersion).split('.'))
-        if tk_version >= (8, 6):
-            self.app_icon = tk.PhotoImage(file=f"{__info__.CONFIG_DIR}/icons/appicon_config.png")
+        self.title(self._('_window_title'))
 
+        self._list_data = JSONHandler(json_file=f"{CONFIG_DIR}/lists.json")
         self.loaded_list = []
         self.loaded_list_name = tk.StringVar()
         self.call_index = 0
-        self.style = ttk.Style()
 
         # Add callback function to update the window title when the list value is changed
         self.loaded_list_name.trace_add('write', callback=lambda a,b,c: self.title(
             f"{self._('_window_title')} - {self._('Loaded List')}: {self.loaded_list_name.get()}"
         ))
 
-        # Define Window Properties
-        self.logger.debug(f"Configuring window properties... (tk Version: {str(tk_version)})")
-        self.title(self._("_window_title"))
-        self.attributes('-topmost', self.config.enable_always_on_top)
-        self.geometry('x'.join(str(x) for x in self.config.app_size))
-        self.protocol('WM_DELETE_WINDOW', self._on_closing)
-        signal.signal(signal.SIGINT, self._on_closing)
-        self.resizable(0,0)
-        self.style.configure('MatchedBg.TButton')
-        if hasattr(self, "app_icon"):
-            self.iconphoto(True, self.app_icon)
+        # Configure additional styles
+        self.bind("<<ThemeChanged>>", lambda _: self.update_styles(self.cget("background")))
 
-        # Define the App ID for the Windows Shell Environment
-        # (This allows the display of app icons in the taskbar and window grouping across scripts)
-        if platform.system() == "Windows":
-            app_id = getattr(__info__, "APP_ID", "fallback")
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
-
-        # Apply the Sun Valley theme and title bar colour on platforms that support it
-        self.theme_helper = ThemeHelper(self, config.app_theme)
-        self.theme_helper.apply_theme()
-        
         self._define_interface()
         self.mainloop()
-
-
-    def _on_closing(self, *_):
-        self.logger.info("Termination signal received")
-        self.logger.debug("  -> Stopping theme listener...")
-        self.theme_helper.stop_listener()
-        self.logger.info("  -> Exiting...")
-        self.destroy()
-
-
-    def set_language(self, lang_code):
-        self.compile_translations(__info__.LOCALE_DIR)
-        try:
-            lang_translations = gettext.translation("generator", localedir=__info__.LOCALE_DIR, languages=[lang_code])
-            self.logger.info(f"Setting language... [Language: {lang_code}]")
-        except FileNotFoundError:
-            lang_translations = gettext.translation("generator", localedir=__info__.LOCALE_DIR, languages=['en'])
-            self.logger.warning(f"Failed to set langauge, falling back to English... [Language: {lang_code}]")
-        lang_translations.install()
-        return lang_translations
-
-
-    def compile_translations(self, locales_dir: str):
-        self.logger.info("Compiling locales...")
-        for lang in os.listdir(locales_dir):
-            po_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.po")
-            mo_file = os.path.join(locales_dir, lang, "LC_MESSAGES", "generator.mo")
-
-            if os.path.exists(po_file):
-                self.logger.debug(f"  -> Compiling {po_file} -> {mo_file}")
-                profile = polib.pofile(po_file)
-                profile.save_as_mofile(mo_file)
 
 
     def _change_list(self):
@@ -107,17 +57,17 @@ class RandomGenerator(tk.Tk):
         available_lists = self._list_data.json_data.keys()
 
         self.attributes('-topmost', False)
-        dialog = TTKDialog(
-            self, TTKDialogType.SELECT,
-            diag_title=self._("Choose an option"),
-            diag_message=f"{self._('Choose an option')}:",
-            diag_choices=available_lists,
-            diag_size=(350, 350),
-            diag_buttons=[
-                (self._("Cancel"), TTKDialogAction.CANCEL),
-                (self._("OK"), TTKDialogAction.OK)
+        dialog = ChoiceDialog(
+            self,
+            title=self._("Choose an option"),
+            message=f"{self._('Choose an option')}:",
+            choices=available_lists,
+            size=(350, 350),
+            buttons=[
+                (self._("Cancel"), DialogAction.CANCEL),
+                (self._("OK"), DialogAction.OK)
             ],
-            primary_action=TTKDialogAction.OK
+            primary_action=DialogAction.OK
         )
         dialog.wait_window(dialog)  # Wait until the dialog is closed before continuing
         self.attributes('-topmost', self.config.app_on_top)
@@ -140,7 +90,10 @@ class RandomGenerator(tk.Tk):
     def _define_interface(self):
         self.logger.debug("Creating interface...")
         self._interface_container = tk.Frame(self)
-        self._item_lbl = tk.Label(self._interface_container, text="", anchor="w", font=(self.config.app_fontface, self.config.app_fontsize))
+        self._item_lbl = ttk.Label(
+            self._interface_container, text="", anchor="w",
+            font=(self.config.app_fontface, self.config.app_fontsize)
+        )
 
         # Define buttons in the format (text, attribute name, command, expand)
         buttons = [
@@ -160,7 +113,10 @@ class RandomGenerator(tk.Tk):
                 self._interface_container.grid_columnconfigure(i, weight=1, uniform="button_controls")
 
         self._interface_container.pack(side="left", fill="both", expand=True, ipadx=20)
-        self._item_lbl.grid(row=0, column=0, columnspan=3, sticky="news", padx=5)
+        self._item_lbl.grid(
+            row=0, column=0, columnspan=3, sticky="news", padx=5,
+            pady=((self._titlebar_height, 0) if hasattr(self, "_titlebar_height") else 0)
+        )
         self._interface_container.grid_rowconfigure(0, weight=1)
         self._random_bgcols()
 
@@ -207,20 +163,14 @@ class RandomGenerator(tk.Tk):
         if sound_fname:
             try:
                 self.logger.debug(f"Attempting to play sound... [{sound_fname}]")
-                playsound(f"{__info__.CONFIG_DIR}/sounds/{sound_fname}")
+                playsound(f"{SOUNDS_DIR}/{sound_fname}")
             except OSError as e:
                 self.logger.error(f"Error playing sound: {e}")
 
 
     def _random_bgcols(self):
         new_col = random.choice(self.config.random_cols)
-        new_txt_col = determine_text_color(
-            new_col,
-            dark_color=self.config.app_dark_text_col,
-            light_color=self.config.app_light_text_col
-        )
 
-        # Change background of elements
         elements_to_update = [
             self,
             self._interface_container,
@@ -229,13 +179,21 @@ class RandomGenerator(tk.Tk):
         for element in elements_to_update:
             element.configure(background=new_col)
 
-        self._item_lbl.configure(foreground=new_txt_col)
+        self.update_styles(new_col)
+
+    def update_styles(self, new_col):
         self.style.configure("MatchedBg.TButton", background=new_col)
+        self.theme_helper._apply_titlebar(override_color=new_col)
+        self._item_lbl.configure(foreground=determine_text_color(
+            self.cget("background"),
+            dark_color=self.config.app_dark_text_col,
+            light_color=self.config.app_light_text_col
+        ))
 
 
 if __name__ == "__main__":
     try:
-        APP_CONFIG = GeneratorAppSettings(f"{__info__.CONFIG_DIR}/app_config.json", __info__.GENERATOR_SCHEMA)
+        APP_CONFIG = GeneratorAppSettings(f"{CONFIG_DIR}/app_config.json", GENERATOR_SCHEMA)
         instance = RandomGenerator(APP_CONFIG)
     except Exception as e:
         print(e)

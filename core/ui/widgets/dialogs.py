@@ -51,11 +51,11 @@ class BaseDialog(tk.Toplevel):
         self.return_value: str | DialogAction | None = None
 
         # Theme
-        if hasattr(parent, 'config') and hasattr(parent.config, 'app_theme'):
+        if hasattr(parent, 'theme'):
             style_customisations = [('Treeview', {"rowheight": 35})]
             self._theme_helper = ThemeHelper(
                 self,
-                parent.config.app_theme,
+                parent.theme,
                 custom_styles=style_customisations,
             )
             self._theme_helper.start()

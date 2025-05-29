@@ -129,7 +129,6 @@ class ThemeHelper:
             if winver.major == 10 and winver.build >= 22000:
                 # Windows 11 Method
                 hwnd = ctypes.windll.user32.FindWindowW(None, self.root.title())
-                print(f"New titlebar colour for '{hwnd}', {bg_color}")
                 pywinstyles.change_header_color(hwnd, color=bg_color)
             elif winver.major == 10:
                 # Windows 10 Method
